@@ -7,7 +7,7 @@ Unlike more complex leader election mechanisms based on consensus algorithms, th
 ## Master Selection
 There is a single master at all times. The master is chosen using the master lock backend. All nodes will attempt to become a master, but only one will succeed. The node chosen to be the master will write a heartbeat to the master lock while it is healthy and executing its duties. 
 
-![master process](images/master_process.svg)
+<img align="left" src="images/master_process.svg" width="350">
 
 ## Supported Backends
 This library comes with support for a set of backend databases that are commonly used. All backend implementations can be found in `go-master/backend`, each under their own packages.
