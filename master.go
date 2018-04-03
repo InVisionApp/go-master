@@ -1,7 +1,6 @@
 package master
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
@@ -128,7 +127,7 @@ func (m *master) runHeartBeat() {
 
 		// run the heartbeat
 		if err := m.lock.WriteHeartbeat(m.info); err != nil {
-			m.errors <- err
+			m.sendError(err)
 			// if heartbeat fails or master lock lost, stop the tasks
 			m.cleanupMaster()
 		}
@@ -161,36 +160,39 @@ func (m *master) cleanupMaster() {
 	m.isMaster.SetFalse()
 	m.info = &backend.MasterInfo{}
 
-	// run hook in routine to avoid blocking
-	go m.stopHook()
+	if m.stopHook != nil {
+		// run hook in routine to avoid blocking
+		go m.stopHook()
+	}
 }
 
 // this will not error, but it will block long enough for the master lock to be lost
 func (m *master) Stop() error {
+	if !m.isMaster.Val() {
+		m.log.Debug("not currently the master, so nothing to stop")
+
+		// this is not an error because the master is stopped
+		// it just becomes a no-op
+		return nil
+	}
+
+	// stop the heartbeat
+	//TODO: if the heartbeat is not running, this will be a leak
+	m.heartBeat.Quit()
+
 	// attempt a release on the backend
+	// this is a best effort. The heartbeat loop has been stopped,
+	// so the lock will be lost eventually either way
 	if err := m.lock.UnLock(m.uuid); err != nil {
-		m.errors <- fmt.Errorf("failed to release lock on master: %v", err)
-
-		// if a proper unlock fails, sleep for n heartbeats
-		// to allow another node to take the master role
-		//TODO: calculate this more intelligently (shared var)
-		sleepTime := m.heartBeatFreq * 3
-		m.log.Errorf("failed to release lock on master, sleeping %v", sleepTime)
-
-		time.Sleep(sleepTime)
+		m.log.Errorf("failed to release lock on master backend: %v", err)
 	}
 
-	//TODO: maybe do a get here to check that it worked (this means return an error)
-	mi, err := m.lock.Status()
-	if err != nil {
-		return fmt.Errorf("failed to get the state of the master process: %v", err)
-	}
+	// at this point, as far as this node is concerned, it is
+	// no longer the master. The only risk is that the heartbeat
+	// did not quit properly
+	// TODO: how can we determine that the heartbeat quit correctly?
 
-	if mi.MasterID == m.uuid {
-		return errors.New("failed to stop the master process. still master")
-	}
-
-	// this is done once unlock is successful
+	// this is only done once unlock is successful
 	m.isMaster.SetFalse()
 	m.info = &backend.MasterInfo{}
 
@@ -202,7 +204,30 @@ func (m *master) IsMaster() bool {
 }
 
 func (m *master) Status() (interface{}, error) {
-	return nil, nil
+	status := map[string]interface{}{
+		"is_master": m.isMaster.Val(),
+	}
+
+	// currently there is nothing to make status error
+	// eventually we could have something like error rate
+	return status, nil
+}
+
+func (m *master) sendError(err error) {
+	//if an err chan exists, send the error, otherwise log it
+	if m.errors != nil {
+		// do this in a routine in case no one is reading this channel
+		// a routine leak is better than a lock up serving stale data
+		// alternatively there could be an intermediate proxy that reads
+		// this channel and queues up errors to be read. Then it becomes
+		// a memory concern instead
+		go func() {
+			//TODO: implement deadline for send error routine
+			m.errors <- err
+		}()
+	} else {
+		m.log.Error(err)
+	}
 }
 
 // a random uuid to use as a namespace
