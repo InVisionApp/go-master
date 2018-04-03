@@ -5,9 +5,10 @@ A simple framework for master selection using flexible backends. With the prolif
 Unlike more complex leader election mechanisms based on consensus algorithms, this simply uses a lock on a shared resource. In an environment of micro-services running in a docker orchestration platform it can often be difficult to obtain direct communication channels between all the nodes of a service, and many services will already require a backend database to store shared state. This master selection library is designed to to cover those use cases.
 
 ## Master Selection
+<img align="right" src="images/master_process.svg" width="300">
 There is a single master at all times. The master is chosen using the master lock backend. All nodes will attempt to become a master, but only one will succeed. The node chosen to be the master will write a heartbeat to the master lock while it is healthy and executing its duties. 
 
-<img align="left" src="images/master_process.svg" width="350">
+<br><br><br><br><br><br><br><br><br><br>
 
 ## Supported Backends
 This library comes with support for a set of backend databases that are commonly used. All backend implementations can be found in `go-master/backend`, each under their own packages.
