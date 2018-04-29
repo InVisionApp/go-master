@@ -1,17 +1,16 @@
 package main
 
 import (
-	"time"
-	"fmt"
 	"os"
 	"sync"
+	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/InVisionApp/go-logger"
 	logshim "github.com/InVisionApp/go-logger/shims/logrus"
+	"github.com/sirupsen/logrus"
 
-	"github.com/InVisionApp/go-master/backend/mongo"
 	"github.com/InVisionApp/go-master"
+	"github.com/InVisionApp/go-master/backend/mongo"
 )
 
 var (
@@ -37,8 +36,6 @@ func main() {
 			Timeout:    time.Duration(1 * time.Second),
 			UseSSL:     false,
 		},
-		Logger: logger,
-		HeartBeatFreq: time.Second * 5,
 	})
 
 	if err := mongoBackend.Connect(); err != nil {
@@ -47,12 +44,8 @@ func main() {
 	}
 
 	m := master.New(&master.MasterConfig{
-		Version: "1.0",
-		HeartBeatFrequency: time.Second * 5,
-		StartHook: startHook,
-		StopHook: stopHook,
-		Err: make(chan error, 1000),
-		Logger: log.NewSimple(),
+		StartHook:  startHook,
+		StopHook:   stopHook,
 		MasterLock: mongoBackend,
 	})
 
@@ -61,15 +54,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	logger.Infof("go-master instance started w/ id: %v", m.ID())
+
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	wg.Wait()
 }
 
 func startHook() {
-	fmt.Println("Have become master")
+	logger.Info("Became master")
 }
 
 func stopHook() {
-	fmt.Println("Lost master status")
+	logger.Info("Lost master status")
 }

@@ -39,19 +39,6 @@ func (m *MongoMasterInfo) toMasterInfo() *backend.MasterInfo {
 func (m *MongoBackend) Lock(info *backend.MasterInfo) error {
 	// get the heartbeat first to see if there is one before inserting
 	oldMMI := &MongoMasterInfo{}
-	err := m.lock.Collection().FindId(MasterInfoID).One(oldMMI)
-	// an error has occurred and it is not a NotFound
-	if err != nil && err != mgo.ErrNotFound {
-		e := fmt.Errorf("failed to fetch current master info: %v", err)
-		m.log.Error(e)
-		return e
-	}
-
-	// has not been long enough since the last valid heart beat
-	if time.Since(oldMMI.LastHeartbeat) < m.heartBeatFreq*2 {
-		return fmt.Errorf("valid lock already in place")
-	}
-
 	t := time.Now()
 	mmi := &MongoMasterInfo{
 		ID:            MasterInfoID, // this is always the same. creates the lock
@@ -61,11 +48,55 @@ func (m *MongoBackend) Lock(info *backend.MasterInfo) error {
 		LastHeartbeat: t,
 	}
 
-	if err := m.lock.Collection().Insert(mmi); err != nil {
-		return err
+	err := m.lock.Collection().FindId(MasterInfoID).One(oldMMI)
+	// an error has occurred and it is not a NotFound
+	if err != nil {
+		if err == mgo.ErrNotFound {
+			// perform an insert
+			if err := m.lock.Collection().Insert(mmi); err != nil {
+				m.log.Errorf("unable to insert initial lock: %v", err)
+				return err
+			}
+
+			m.log.Info("successfully inserted initial lock")
+			return nil
+		}
+
+		e := fmt.Errorf("failed to fetch current master info: %v", err)
+		m.log.Error(e)
+
+		m.log.Debug("attempting to refresh sessions in case of db issues")
+		m.refresh()
+
+		return e
+	}
+
+	// has not been long enough since the last valid heart beat
+	if time.Since(oldMMI.LastHeartbeat) < m.heartBeatFreq*2 && oldMMI.MasterID != info.MasterID {
+		return fmt.Errorf("valid lock already in place")
+	}
+
+	query := bson.M{"master_id": oldMMI.MasterID, "last_heartbeat": oldMMI.LastHeartbeat}
+
+	change := mgo.Change{
+		Update:    mmi,
+		ReturnNew: true,
+	}
+
+	if _, err := m.lock.Collection().Find(query).Apply(change, mmi); err != nil {
+		lErr := fmt.Errorf("unable to complete findModify: %v", err)
+		m.log.Error(lErr)
+		return lErr
 	}
 
 	return nil
+
+}
+
+// Force refresh all sessions (bypassing SmartCollection's auto-refresh)
+// TODO: add auto-refreshing functionality across the board (GetNextJob, CompleteJob, etc.)
+func (m *MongoBackend) refresh() {
+	m.lock.Collection().Database.Session.Refresh()
 }
 
 // Release the lock to relinquish the master role. This will not succeed if the
@@ -89,22 +120,19 @@ func (m *MongoBackend) UnLock(masterID string) error {
 func (m *MongoBackend) WriteHeartbeat(info *backend.MasterInfo) error {
 	query := bson.M{"master_id": info.MasterID}
 
-	change := mgo.Change{
-		Update:    bson.M{"last_heartbeat": time.Now()},
-		ReturnNew: true,
+	lastHeartbeat := time.Now()
+
+	change := bson.M{
+		"$set": bson.M{
+			"last_heartbeat": lastHeartbeat,
+		},
 	}
 
-	mmi := &MongoMasterInfo{}
-	_, err := m.lock.coll.Find(query).Apply(change, mmi)
-	if err != nil {
-		if err == mgo.ErrNotFound { //not found is ok
-			return nil
-		}
-
-		return err
+	if err := m.lock.coll.Update(query, change); err != nil {
+		return fmt.Errorf("Unable to complete heartbeat update: %v", err)
 	}
 
-	info.LastHeartbeat = mmi.LastHeartbeat
+	info.LastHeartbeat = lastHeartbeat
 
 	return nil
 }
