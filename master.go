@@ -51,6 +51,7 @@ type MasterConfig struct {
 	// StartHook func is called as soon as a master lock is achieved.
 	// It is the callback to signal becoming a master
 	StartHook func()
+
 	// StopHook func is called when the master lock is lost.
 	// It is the callback to signal that it is no longer the master.
 	// It is not called when the master is stopped manually

@@ -2,12 +2,12 @@ package mongo
 
 import (
 	"time"
-
 	"fmt"
 
-	"github.com/InVisionApp/go-background/backend"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+
+	"github.com/InVisionApp/go-master/backend"
 )
 
 /************************
