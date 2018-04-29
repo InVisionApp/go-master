@@ -5,18 +5,24 @@ import (
 	"time"
 
 	"github.com/InVisionApp/go-logger"
-	"github.com/InVisionApp/go-logger/shims/logrus"
 	"github.com/relistan/go-director"
 	"github.com/satori/go.uuid"
 
+	"github.com/InVisionApp/go-logger/shims/logrus"
 	"github.com/InVisionApp/go-master/backend"
 	"github.com/InVisionApp/go-master/safe"
+)
+
+const (
+	DefaultHeartbeatFrequency = time.Second * 1
+	DefaultVersion            = "unset"
 )
 
 type Master interface {
 	Start() error
 	Stop() error
 	IsMaster() bool
+	ID() string
 
 	Status() (interface{}, error)
 }
@@ -43,28 +49,34 @@ type master struct {
 }
 
 type MasterConfig struct {
-	Version            string
-	HeartBeatFrequency time.Duration
-
+	// Required: Backend that will be used for master election
 	MasterLock backend.MasterLock
 
-	// StartHook func is called as soon as a master lock is achieved.
+	// Optional: How often should a master send heartbeats (default: */1s)
+	HeartBeatFrequency time.Duration
+
+	// Optional: StartHook func is called as soon as a master lock is achieved.
 	// It is the callback to signal becoming a master
 	StartHook func()
 
-	// StopHook func is called when the master lock is lost.
+	// Optional: StopHook func is called when the master lock is lost
 	// It is the callback to signal that it is no longer the master.
 	// It is not called when the master is stopped manually
 	StopHook func()
 
-	Err    chan error
+	// Optional: Error channel to receive go-master related error messages
+	Err chan error
+
+	// Optional: Logger for go-master to use (default: new logrus shim will be created)
 	Logger log.Logger
+
+	// Optional: If set, workers will NOT perform any work if the master's
+	// version differs from their own version. (default: "unset")
+	Version string
 }
 
 func New(cfg *MasterConfig) Master {
-	if cfg.Logger == nil {
-		cfg.Logger = logrus.New(nil)
-	}
+	setDefaults(cfg)
 
 	return &master{
 		uuid:          generateUUID().String(), // pick a unique ID for the master
@@ -85,9 +97,29 @@ func New(cfg *MasterConfig) Master {
 	}
 }
 
+func setDefaults(cfg *MasterConfig) {
+	if cfg.Logger == nil {
+		cfg.Logger = logrus.New(nil)
+	}
+
+	if cfg.Version == "" {
+		cfg.Version = DefaultVersion
+	}
+
+	if cfg.HeartBeatFrequency.String() == "0s" {
+		cfg.HeartBeatFrequency = DefaultHeartbeatFrequency
+	}
+}
+
+func (m *master) ID() string {
+	return m.uuid
+}
+
 // validate that all necessary configuration/components are there
 func (m *master) validate() error {
-	//TODO: implement
+	if m.lock == nil {
+		return fmt.Errorf("MasterLock backend must be defined")
+	}
 
 	return nil
 }

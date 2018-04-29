@@ -9,12 +9,15 @@ type MasterLock interface {
 	// MasterInfo will be filled out and recorded. The MasterInfo passed in will be filled
 	// out with the remaining details.
 	Lock(info *MasterInfo) error
+
 	// Release the lock to relinquish the master role. This will not succeed if the
 	// provided masterID does not match the ID of the current master.
 	UnLock(masterID string) error
+
 	// Write a heartbeat to ensure that the master role is not lost.
 	// If successful, the last heartbeat time is written to the passed MasterInfo
 	WriteHeartbeat(info *MasterInfo) error
+
 	// Get the current master status. Provides the MasterInfo of the current master.
 	Status() (*MasterInfo, error)
 }

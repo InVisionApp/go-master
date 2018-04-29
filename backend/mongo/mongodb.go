@@ -17,9 +17,10 @@ import (
 )
 
 const (
-	DEFAULT_COLLECTION_NAME = "masterlock"
+	DefaultCollectionName     = "masterlock"
+	DefaultHeartbeatFrequency = time.Second * 5
 
-	MGO_SESSION_REFRESH_FREQ = time.Minute * 5
+	MgoSessionRefreshFreq = time.Minute * 5
 )
 
 type MongoBackend struct {
@@ -34,10 +35,17 @@ type MongoBackend struct {
 }
 
 type MongoBackendConfig struct {
+	// Optional: What collection will the lock be stored in (default: "masterlock")
 	CollectionName string
-	ConnectConfig  *MongoConnectConfig
-	HeartBeatFreq  time.Duration
-	Logger         log.Logger
+
+	// Required: Mongo connection config
+	ConnectConfig *MongoConnectConfig
+
+	// Optional: At which point
+	HeartBeatFreq time.Duration
+
+	// Optional: Logger for the mongo backend to use (default: new logrus shim will be created)
+	Logger log.Logger
 }
 
 type MongoConnectConfig struct {
@@ -52,13 +60,7 @@ type MongoConnectConfig struct {
 }
 
 func New(cfg *MongoBackendConfig) *MongoBackend {
-	if cfg.Logger == nil {
-		cfg.Logger = logrus.New(nil)
-	}
-
-	if len(cfg.CollectionName) < 1 {
-		cfg.CollectionName = DEFAULT_COLLECTION_NAME
-	}
+	setDefaults(cfg)
 
 	return &MongoBackend{
 		collName:      cfg.CollectionName,
@@ -69,10 +71,22 @@ func New(cfg *MongoBackendConfig) *MongoBackend {
 			{
 				Name: "heartbeat_ttl",
 				Key:  []string{"last_heartbeat"},
-				//TODO: calculate this more intelligently (shared var)
-				ExpireAfter: cfg.HeartBeatFreq * 2, // wait two heartbeats
 			},
 		},
+	}
+}
+
+func setDefaults(cfg *MongoBackendConfig) {
+	if cfg.Logger == nil {
+		cfg.Logger = logrus.New(nil)
+	}
+
+	if cfg.HeartBeatFreq.String() == "0s" {
+		cfg.HeartBeatFreq = DefaultHeartbeatFrequency
+	}
+
+	if len(cfg.CollectionName) < 1 {
+		cfg.CollectionName = DefaultCollectionName
 	}
 }
 
@@ -103,7 +117,7 @@ func (m *MongoBackend) Connect() error {
 
 	session, err := mgo.DialWithInfo(dialInfo)
 	if err != nil {
-		return fmt.Errorf("Could not connect to MongoDB: %v", err)
+		return fmt.Errorf("could not connect to MongoDB: %v", err)
 	}
 
 	// the lock db is special because data accuracy is more important here
@@ -111,7 +125,7 @@ func (m *MongoBackend) Connect() error {
 	lc := session.Copy().DB(m.cfg.Name).C(m.collName)
 	lc.Database.Session.SetMode(mgo.Strong, false)
 	lc.Database.Session.SetSafe(&mgo.Safe{})
-	m.lock = newSmartCollection(lc, MGO_SESSION_REFRESH_FREQ, m.log)
+	m.lock = newSmartCollection(lc, MgoSessionRefreshFreq, m.log)
 	m.lock.EnsureIndexes(m.indices)
 
 	return nil
@@ -160,7 +174,7 @@ func (s *SmartCollection) EnsureIndexes(idxs []*mgo.Index) error {
 	for _, idx := range idxs {
 		s.log.Debugf("Ensuring index: %s", idx.Name)
 		if err := s.UpsertIndex(idx); err != nil {
-			return fmt.Errorf("Could not ensure indexes on DB: %v", err)
+			return fmt.Errorf("could not ensure indexes on DB: %v", err)
 		}
 	}
 
