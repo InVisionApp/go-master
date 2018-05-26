@@ -7,6 +7,8 @@ import (
 
 	"github.com/InVisionApp/go-logger"
 	logshim "github.com/InVisionApp/go-logger/shims/logrus"
+	"github.com/InVisionApp/go-master/backend"
+	"github.com/InVisionApp/go-master/backend/mysql"
 	"github.com/sirupsen/logrus"
 
 	"github.com/InVisionApp/go-master"
@@ -24,6 +26,30 @@ func init() {
 }
 
 func main() {
+	//masterLock := MongDBBackend()
+	masterLock := MySQLBackend()
+
+	m := master.New(&master.MasterConfig{
+		StartHook:  startHook,
+		StopHook:   stopHook,
+		MasterLock: masterLock,
+		Logger:     logger,
+	})
+
+	if err := m.Start(); err != nil {
+		logger.Errorf("Unable to start go-master: %v", err)
+		os.Exit(1)
+	}
+
+	logger.Infof("go-master instance started w/ id: %v", m.ID())
+
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	wg.Wait()
+
+}
+
+func MongDBBackend() backend.MasterLock {
 	mongoBackend := mongo.New(&mongo.MongoBackendConfig{
 		CollectionName: "gomaster",
 		ConnectConfig: &mongo.MongoConnectConfig{
@@ -43,22 +69,24 @@ func main() {
 		os.Exit(1)
 	}
 
-	m := master.New(&master.MasterConfig{
-		StartHook:  startHook,
-		StopHook:   stopHook,
-		MasterLock: mongoBackend,
+	return mongoBackend
+}
+
+func MySQLBackend() backend.MasterLock {
+	mysqlBackend := mysql.NewMySQLBackend(&mysql.MySQLBackendConfig{
+		User:     "foo",
+		Password: "bar",
+		Host:     "localhost",
+		Port:     3306,
+		DBName:   "gomastertest",
 	})
 
-	if err := m.Start(); err != nil {
-		logger.Errorf("Unable to start go-master: %v", err)
+	if err := mysqlBackend.Connect(); err != nil {
+		logger.Errorf("Unable to connect to MySQL: %v", err)
 		os.Exit(1)
 	}
 
-	logger.Infof("go-master instance started w/ id: %v", m.ID())
-
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	wg.Wait()
+	return mysqlBackend
 }
 
 func startHook() {
