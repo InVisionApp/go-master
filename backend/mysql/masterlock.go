@@ -68,17 +68,17 @@ func (m *MySQLBackend) Lock(info *backend.MasterInfo) error {
 
 	// a master lock record is present but expired
 	query := fmt.Sprintf(
-		"UPDATE %s SET "+
-			"master_id = :new_master_id, "+
-			"version = :new_version, "+
-			"started_at = :new_started_at, "+
-			"last_heartbeat = :new_last_heartbeat "+
-			"WHERE "+
-			"id = :id AND "+
-			"master_id = :master_id ", // AND "+
-		//"version = :version AND "+
-		//"started_at = :started_at AND "+
-		//"last_heartbeat = :last_heartbeat",
+		`UPDATE %s SET
+			master_id = :new_master_id,
+			version = :new_version,
+			started_at = :new_started_at,
+			last_heartbeat = :new_last_heartbeat
+		WHERE
+			id = :id AND
+			master_id = :master_id AND
+			version = :version AND
+			started_at = :started_at AND
+			last_heartbeat = :last_heartbeat`,
 		LockTableName)
 
 	fields := map[string]interface{}{
