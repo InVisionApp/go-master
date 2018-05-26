@@ -207,7 +207,6 @@ func (m *master) cleanupMaster() {
 	}
 }
 
-// this will not error, but it will block long enough for the master lock to be lost
 func (m *master) Stop() error {
 	if !m.isMaster.Val() {
 		m.log.Debug("not currently the master, so nothing to stop")

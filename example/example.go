@@ -7,12 +7,12 @@ import (
 
 	"github.com/InVisionApp/go-logger"
 	logshim "github.com/InVisionApp/go-logger/shims/logrus"
-	"github.com/InVisionApp/go-master/backend"
-	"github.com/InVisionApp/go-master/backend/mysql"
 	"github.com/sirupsen/logrus"
 
 	"github.com/InVisionApp/go-master"
+	"github.com/InVisionApp/go-master/backend"
 	"github.com/InVisionApp/go-master/backend/mongo"
+	"github.com/InVisionApp/go-master/backend/mysql"
 )
 
 var (
