@@ -214,7 +214,7 @@ var _ = Describe("master", func() {
 
 						select {
 						case e := <-ec:
-							Expect(e.Error()).To(Equal("failed"))
+							Expect(e.Error()).To(ContainSubstring("failed"))
 						}
 					})
 
@@ -363,11 +363,6 @@ var _ = Describe("master", func() {
 			Expect(stat["is_master"]).To(BeFalse())
 		})
 	})
-
-	Describe("scenarios", func() {
-
-	})
-
 })
 
 type testHooks struct {

@@ -41,7 +41,7 @@ type MongoBackendConfig struct {
 	// Required: Mongo connection config
 	ConnectConfig *MongoConnectConfig
 
-	// Optional: At which point
+	// Optional: Frequency of master heartbeat write
 	HeartBeatFreq time.Duration
 
 	// Optional: Logger for the mongo backend to use (default: new logrus shim will be created)
@@ -81,7 +81,7 @@ func setDefaults(cfg *MongoBackendConfig) {
 		cfg.Logger = logrus.New(nil)
 	}
 
-	if cfg.HeartBeatFreq.String() == "0s" {
+	if cfg.HeartBeatFreq == 0 {
 		cfg.HeartBeatFreq = DefaultHeartbeatFrequency
 	}
 
