@@ -8,7 +8,6 @@ import (
 
 	"github.com/InVisionApp/go-logger"
 	"github.com/InVisionApp/go-logger/shims/logrus"
-	"github.com/dselans/sql-migrate"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 )
@@ -112,12 +111,9 @@ func (m *MySQLBackend) Connect() error {
 		return err
 	}
 
-	num, err := m.performMigrations()
-	if err != nil {
+	if err := m.createTable(); err != nil {
 		return fmt.Errorf("Unable to complete one or more migrations: %v", err.Error())
 	}
-
-	m.log.Debugf("Performed %v migration(s)", num)
 
 	return nil
 }
@@ -158,47 +154,35 @@ func (m *MySQLBackend) createDB() error {
 	m.log.Debug("Creating new lock DB if it does not exist")
 	_, err := m.db.Exec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%v`", m.DBName))
 	if err != nil {
-		return fmt.Errorf("Unable to create initial lock DB: %v", err.Error())
+		return fmt.Errorf("Unable to create initial lock DB: %v", err)
 	}
 
-	m.log.Debug("Created new lock DB (or already existed)")
+	m.log.Infof("Created new lock DB (or already existed)")
+
+	if _, err := m.db.Exec(fmt.Sprintf("use `%v`", m.DBName)); err != nil {
+		return fmt.Errorf("Unable to open db connection: %v", err)
+	}
+
 	return nil
 }
 
-func (m *MySQLBackend) performMigrations() (int, error) {
-	// perform migrations
-	migrations := &migrate.MemoryMigrationSource{
-		Migrations: []*migrate.Migration{
-			{
-				Id: "create-table",
-				Up: []string{
-					fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (`+
-						`id INT NOT NULL PRIMARY KEY,`+
-						`master_id CHAR(36) UNIQUE,`+
-						`version VARCHAR(255),`+
-						`started_at TIMESTAMP,`+
-						`last_heartbeat TIMESTAMP`+
-						`);`, LockTableName),
-				},
-				Down: []string{
-					fmt.Sprintf("DROP TABLE %s;", LockTableName),
-				},
-			},
-		},
-	}
+func (m *MySQLBackend) createTable() error {
+	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (`+
+		`id INT NOT NULL PRIMARY KEY,`+
+		`master_id CHAR(36) UNIQUE,`+
+		`version VARCHAR(255),`+
+		`started_at TIMESTAMP,`+
+		`last_heartbeat TIMESTAMP`+
+		`);`, LockTableName)
 
 	m.log.Debug("Attempting to create lock table")
 
-	_, err := m.db.Exec(fmt.Sprintf("use `%v`", m.DBName))
+	_, err := m.db.DB.Exec(query)
 	if err != nil {
-		return 0, fmt.Errorf("Unable to open db connection for table creation: %v", err.Error())
+		return fmt.Errorf("Unable to create lock table: %v", err)
 	}
 
-	n, err := migrate.ExecWithLock(m.db.DB, m.driver, migrations, migrate.Up, migrate.DefaultLockWaitTime)
-	if err != nil {
-		return 0, fmt.Errorf("Unable to create lock table: %v", err.Error())
-	}
+	m.log.Infof("Created new lock table (or already existed)")
 
-	m.log.Debug("Master lock setup successful")
-	return n, nil
+	return nil
 }
