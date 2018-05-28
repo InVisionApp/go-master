@@ -34,7 +34,7 @@ type MySQLBackendConfig struct {
 	User     string
 	Password string
 	Host     string
-	Port     int
+	Port     int //optional
 
 	// Name of the DB to connect to. If a name is supplied,
 	// a table will be created within that DB. If a DB with the
@@ -43,8 +43,8 @@ type MySQLBackendConfig struct {
 	DBName string
 
 	// optional params
-	MaxWaitMillis int
-	MaxRetries    int
+	MaxWait    time.Duration
+	MaxRetries int
 
 	// Optional: Frequency of master heartbeat write
 	HeartBeatFreq time.Duration
@@ -76,12 +76,8 @@ func (m *MySQLBackendConfig) setDefaults() {
 		m.BaseDSN = fmt.Sprintf("%s:%s@tcp(%s:%d)/?parseTime=true", m.User, m.Password, m.Host, m.Port)
 	}
 
-	if m.MaxWaitMillis == 0 {
-		m.MaxWaitMillis = 10000
-	}
-
-	if m.MaxRetries == 0 {
-		m.MaxRetries = 3
+	if m.MaxWait == 0 {
+		m.MaxWait = time.Second * 5
 	}
 
 	if m.DBName == "" {
@@ -118,12 +114,11 @@ func (m *MySQLBackend) Connect() error {
 	return nil
 }
 
-// Try to connect to a DB server x d.Config.DBMaxRetries (sleeping for d.Config.MaxWaitMillis)
+// Try to connect to a DB server
 func (m *MySQLBackend) retryConnect() error {
 	m.log.Debug("Attempting to connect to DB")
 
 	var errMessage string
-	retryWait := time.Duration(m.MaxWaitMillis) * time.Millisecond
 
 	for i := 1; i <= m.MaxRetries; i++ {
 		db, err := sqlx.Connect(m.driver, m.BaseDSN)
@@ -135,9 +130,9 @@ func (m *MySQLBackend) retryConnect() error {
 
 			errMessage = fmt.Sprintf("Initial DB connection failed after %d attempts: %v", i, err)
 			m.log.Errorf("Unable to connect to DB: %v; Attempt %d/%d (retrying in %v)",
-				err, i, m.MaxRetries, retryWait)
+				err, i, m.MaxRetries, m.MaxWait)
 
-			time.Sleep(retryWait)
+			time.Sleep(m.MaxWait)
 			continue
 		}
 
