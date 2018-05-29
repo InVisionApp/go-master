@@ -7,10 +7,11 @@ import (
 
 	"github.com/InVisionApp/go-logger"
 	logshim "github.com/InVisionApp/go-logger/shims/logrus"
-	"github.com/sirupsen/logrus"
-
 	"github.com/InVisionApp/go-master"
+	"github.com/InVisionApp/go-master/backend"
 	"github.com/InVisionApp/go-master/backend/mongo"
+	"github.com/InVisionApp/go-master/backend/mysql"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -24,29 +25,14 @@ func init() {
 }
 
 func main() {
-	mongoBackend := mongo.New(&mongo.MongoBackendConfig{
-		CollectionName: "gomaster",
-		ConnectConfig: &mongo.MongoConnectConfig{
-			Hosts:      []string{"localhost"},
-			Name:       "gomastertest",
-			ReplicaSet: "",
-			Source:     "",
-			User:       "",
-			Password:   "",
-			Timeout:    time.Duration(1 * time.Second),
-			UseSSL:     false,
-		},
-	})
-
-	if err := mongoBackend.Connect(); err != nil {
-		logger.Errorf("Unable to connect to mongo: %v", err)
-		os.Exit(1)
-	}
+	//masterLock := MongDBBackend()
+	masterLock := MySQLBackend()
 
 	m := master.New(&master.MasterConfig{
 		StartHook:  startHook,
 		StopHook:   stopHook,
-		MasterLock: mongoBackend,
+		MasterLock: masterLock,
+		Logger:     logger,
 	})
 
 	if err := m.Start(); err != nil {
@@ -59,6 +45,46 @@ func main() {
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	wg.Wait()
+
+}
+
+func MongDBBackend() backend.MasterLock {
+	mongoBackend := mongo.New(&mongo.MongoBackendConfig{
+		CollectionName: "gomaster",
+		ConnectConfig: &mongo.MongoConnectConfig{
+			Hosts:   []string{"localhost"},
+			Name:    "gomastertest",
+			Timeout: time.Duration(1 * time.Second),
+			UseSSL:  false,
+		},
+		Logger: logger,
+	})
+
+	if err := mongoBackend.Connect(); err != nil {
+		logger.Errorf("Unable to connect to mongo: %v", err)
+		os.Exit(1)
+	}
+
+	return mongoBackend
+}
+
+func MySQLBackend() backend.MasterLock {
+	mysqlBackend := mysql.NewMySQLBackend(&mysql.MySQLBackendConfig{
+		User:     "foo",
+		Password: "bar",
+		Host:     "localhost",
+		Port:     3306,
+		DBName:   "gomastertest",
+		CreateDB: true,
+		Logger:   logger,
+	})
+
+	if err := mysqlBackend.Connect(); err != nil {
+		logger.Errorf("Unable to connect to MySQL: %v", err)
+		os.Exit(1)
+	}
+
+	return mysqlBackend
 }
 
 func startHook() {

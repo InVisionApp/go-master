@@ -160,10 +160,17 @@ func (m *master) runHeartBeat() {
 
 		// run the heartbeat
 		if err := m.lock.WriteHeartbeat(m.info); err != nil {
-			m.sendError(err)
+			m.log.Debugf("failed to write heartbeat: %v", err)
+
+			m.sendError(fmt.Errorf("failed to write heartbeat: %v", err))
 			// if heartbeat fails or master lock lost, stop the tasks
 			m.cleanupMaster()
+
+			//continue
+			return nil
 		}
+
+		m.log.Debugf("wrote heartbeat: %v", m.info.LastHeartbeat)
 
 		//continue
 		return nil
@@ -177,6 +184,7 @@ func (m *master) becomeMaster() bool {
 	}
 
 	if err := m.lock.Lock(mi); err != nil {
+		m.log.Debugf("failed to lock: %v", err)
 		return false
 	}
 
@@ -199,7 +207,6 @@ func (m *master) cleanupMaster() {
 	}
 }
 
-// this will not error, but it will block long enough for the master lock to be lost
 func (m *master) Stop() error {
 	if !m.isMaster.Val() {
 		m.log.Debug("not currently the master, so nothing to stop")

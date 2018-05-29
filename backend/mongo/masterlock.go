@@ -1,8 +1,8 @@
 package mongo
 
 import (
-	"time"
 	"fmt"
+	"time"
 
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
