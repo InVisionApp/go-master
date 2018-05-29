@@ -36,11 +36,16 @@ type MySQLBackendConfig struct {
 	Host     string
 	Port     int //optional
 
-	// Name of the DB to connect to. If a name is supplied,
-	// a table will be created within that DB. If a DB with the
-	// supplied name does not exist, it will be created. If a
-	// DB name is supplied, a db will be created using the default name
-	DBName string
+	// Name of the DB to connect to.
+	// If a name is supplied, a table will be created within that DB.
+	// If a DB with the supplied name does not exist, and CreateDB is
+	// set to true, it will be created.
+	// If a DB name is not supplied, the default DB name will be used.
+	// It will also attempt to create the DB if the CreateDB bool is
+	// set to true.
+	// DB creation is idempotent and can be left enabled if desired.
+	DBName   string
+	CreateDB bool
 
 	// optional params
 	MaxWait    time.Duration
@@ -102,8 +107,15 @@ func (m *MySQLBackend) Connect() error {
 		return err
 	}
 
-	// attempt to create db
-	if err := m.createDB(); err != nil {
+	// attempt to create DB enabled
+	if m.CreateDB {
+		if err := m.createDB(); err != nil {
+			return err
+		}
+	}
+
+	// use the appropriate DB
+	if err := m.useDB(); err != nil {
 		return err
 	}
 
@@ -118,9 +130,14 @@ func (m *MySQLBackend) Connect() error {
 func (m *MySQLBackend) retryConnect() error {
 	m.log.Debug("Attempting to connect to DB")
 
-	var errMessage string
+	var (
+		errMessage string
+		tries      int
+	)
 
-	for i := 1; i <= m.MaxRetries; i++ {
+	for i := 0; i <= m.MaxRetries; i++ {
+		tries++
+
 		db, err := sqlx.Connect(m.driver, m.BaseDSN)
 		if err != nil {
 			//close the bad connection to prevent routine leak
@@ -128,9 +145,9 @@ func (m *MySQLBackend) retryConnect() error {
 				db.Close()
 			}
 
-			errMessage = fmt.Sprintf("Initial DB connection failed after %d attempts: %v", i, err)
+			errMessage = fmt.Sprintf("Initial DB connection failed after %d attempts: %v", tries, err)
 			m.log.Errorf("Unable to connect to DB: %v; Attempt %d/%d (retrying in %v)",
-				err, i, m.MaxRetries, m.MaxWait)
+				err, tries, m.MaxRetries, m.MaxWait)
 
 			time.Sleep(m.MaxWait)
 			continue
@@ -147,6 +164,7 @@ func (m *MySQLBackend) retryConnect() error {
 
 func (m *MySQLBackend) createDB() error {
 	m.log.Debug("Creating new lock DB if it does not exist")
+
 	_, err := m.db.Exec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%v`", m.DBName))
 	if err != nil {
 		return fmt.Errorf("Unable to create initial lock DB: %v", err)
@@ -154,9 +172,15 @@ func (m *MySQLBackend) createDB() error {
 
 	m.log.Infof("Created new lock DB (or already existed)")
 
+	return nil
+}
+
+func (m *MySQLBackend) useDB() error {
 	if _, err := m.db.Exec(fmt.Sprintf("use `%v`", m.DBName)); err != nil {
 		return fmt.Errorf("Unable to open db connection: %v", err)
 	}
+
+	m.log.Debugf("Using DB %s", m.DBName)
 
 	return nil
 }

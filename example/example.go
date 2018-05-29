@@ -7,12 +7,11 @@ import (
 
 	"github.com/InVisionApp/go-logger"
 	logshim "github.com/InVisionApp/go-logger/shims/logrus"
-	"github.com/sirupsen/logrus"
-
 	"github.com/InVisionApp/go-master"
 	"github.com/InVisionApp/go-master/backend"
 	"github.com/InVisionApp/go-master/backend/mongo"
 	"github.com/InVisionApp/go-master/backend/mysql"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -53,15 +52,12 @@ func MongDBBackend() backend.MasterLock {
 	mongoBackend := mongo.New(&mongo.MongoBackendConfig{
 		CollectionName: "gomaster",
 		ConnectConfig: &mongo.MongoConnectConfig{
-			Hosts:      []string{"localhost"},
-			Name:       "gomastertest",
-			ReplicaSet: "",
-			Source:     "",
-			User:       "",
-			Password:   "",
-			Timeout:    time.Duration(1 * time.Second),
-			UseSSL:     false,
+			Hosts:   []string{"localhost"},
+			Name:    "gomastertest",
+			Timeout: time.Duration(1 * time.Second),
+			UseSSL:  false,
 		},
+		Logger: logger,
 	})
 
 	if err := mongoBackend.Connect(); err != nil {
@@ -79,6 +75,8 @@ func MySQLBackend() backend.MasterLock {
 		Host:     "localhost",
 		Port:     3306,
 		DBName:   "gomastertest",
+		CreateDB: true,
+		Logger:   logger,
 	})
 
 	if err := mysqlBackend.Connect(); err != nil {
