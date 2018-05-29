@@ -132,8 +132,7 @@ func (m *MySQLBackend) insertMasterInfo(info *MySQLMasterInfo) error {
 		VALUES (:id, :master_id, :version, :started_at, :last_heartbeat)`,
 		LockTableName)
 
-	_, err := m.db.NamedExec(query, info)
-	if err != nil {
+	if _, err := m.db.NamedExec(query, info); err != nil {
 		return fmt.Errorf("failed to obtain a master lock: %v", err)
 	}
 
@@ -144,8 +143,7 @@ func (m *MySQLBackend) UnLock(masterID string) error {
 	query := fmt.Sprintf(`DELETE FROM %s WHERE id = %d AND master_id = %s`,
 		LockTableName, MasterLockID, masterID)
 
-	_, err := m.db.Exec(query)
-	if err != nil {
+	if _, err := m.db.Exec(query); err != nil {
 		return fmt.Errorf("failed to release master lock: %v", err)
 	}
 

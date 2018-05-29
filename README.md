@@ -9,7 +9,7 @@ Unlike more complex leader election mechanisms based on consensus algorithms, th
 ## Example Use Cases
 **Database migrations** - In-app database migrations can be difficult to run in a clustered application. Use go-master to pick a master node and only run migrations from the master.
 
-**Background tasks** - Periodic background tasks such as sending email that should only run once per period can run on the master.
+**One-time tasks** - Ensure something is only run by one node in a clustered service. For example sending a email that should only be sent once.
 
 ## Master Selection
 <img align="right" src="images/master_process.svg" width="300">
@@ -27,7 +27,7 @@ Currently supported:
 - MongoDB
 - MySQL
 
-### Example backend usage
+### Example MySQL backend usage
 ```go
 	"github.com/InVisionApp/go-master"
 	"github.com/InVisionApp/go-master/backend/mysql"

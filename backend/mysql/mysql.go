@@ -59,7 +59,6 @@ type MySQLBackendConfig struct {
 
 	// internal config
 	driver string
-	//migrationDir string
 }
 
 func NewMySQLBackend(cfg *MySQLBackendConfig) *MySQLBackend {
