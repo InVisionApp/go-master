@@ -18,6 +18,8 @@ const (
 	DefaultVersion            = "unset"
 )
 
+//go:generate counterfeiter -o fakes/fakemaster/fake_master.go . Master
+
 type Master interface {
 	Start() error
 	Stop() error
