@@ -79,7 +79,7 @@ func (m *MySQLBackend) Lock(info *backend.MasterInfo) error {
 			version = :version AND
 			started_at = :started_at AND
 			last_heartbeat = :last_heartbeat`,
-		LockTableName)
+		m.TableName)
 
 	fields := map[string]interface{}{
 		// new fields
@@ -110,7 +110,7 @@ func (m *MySQLBackend) Lock(info *backend.MasterInfo) error {
 }
 
 func (m *MySQLBackend) getMasterInfo() (*MySQLMasterInfo, bool, error) {
-	query := fmt.Sprintf("SELECT * FROM masterlock WHERE id = %d", MasterLockID)
+	query := fmt.Sprintf("SELECT * FROM %s WHERE id = %d", m.TableName, MasterLockID)
 
 	minfo := &MySQLMasterInfo{}
 
@@ -130,7 +130,7 @@ func (m *MySQLBackend) insertMasterInfo(info *MySQLMasterInfo) error {
 	query := fmt.Sprintf(`
 		INSERT INTO %s (id, master_id, version, started_at, last_heartbeat) 
 		VALUES (:id, :master_id, :version, :started_at, :last_heartbeat)`,
-		LockTableName)
+		m.TableName)
 
 	if _, err := m.db.NamedExec(query, info); err != nil {
 		return fmt.Errorf("failed to obtain a master lock: %v", err)
@@ -140,10 +140,9 @@ func (m *MySQLBackend) insertMasterInfo(info *MySQLMasterInfo) error {
 }
 
 func (m *MySQLBackend) UnLock(masterID string) error {
-	query := fmt.Sprintf(`DELETE FROM %s WHERE id = %d AND master_id = %s`,
-		LockTableName, MasterLockID, masterID)
+	query := fmt.Sprintf(`DELETE FROM %s WHERE id = ? AND master_id = ?`, m.TableName)
 
-	if _, err := m.db.Exec(query); err != nil {
+	if _, err := m.db.Exec(query, MasterLockID, masterID); err != nil {
 		return fmt.Errorf("failed to release master lock: %v", err)
 	}
 
@@ -158,7 +157,7 @@ func (m *MySQLBackend) WriteHeartbeat(info *backend.MasterInfo) error {
 			last_heartbeat = :last_heartbeat
 		WHERE 
 			master_id = :master_id`,
-		LockTableName)
+		m.TableName)
 
 	mi := &MySQLMasterInfo{
 		MasterID:      info.MasterID,
