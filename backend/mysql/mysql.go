@@ -178,7 +178,7 @@ func (m *MySQLBackend) createDB() error {
 		return fmt.Errorf("Unable to create initial lock DB: %v", err)
 	}
 
-	m.log.Infof("Created new lock DB (or already existed)")
+	m.log.Debugf("Created new lock DB '%v' (or already existed)", m.DBName)
 
 	return nil
 }
@@ -209,7 +209,7 @@ func (m *MySQLBackend) createTable() error {
 		return fmt.Errorf("Unable to create lock table: %v", err)
 	}
 
-	m.log.Infof("Created new lock table (or already existed)")
+	m.log.Debugf("Created new lock table '%v' (or already existed)", m.TableName)
 
 	return nil
 }
