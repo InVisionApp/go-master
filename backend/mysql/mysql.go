@@ -15,7 +15,7 @@ import (
 const (
 	DefaultDBName             = "gomaster"
 	DefaultHeartbeatFrequency = time.Second * 5
-	LockTableName             = "masterlock"
+	DefaultTableName          = "masterlock"
 )
 
 type MySQLBackend struct {
@@ -44,7 +44,12 @@ type MySQLBackendConfig struct {
 	// It will also attempt to create the DB if the CreateDB bool is
 	// set to true.
 	// DB creation is idempotent and can be left enabled if desired.
-	DBName   string
+	DBName string
+
+	// Optional: table name where the lock will exist (default: masterlock)
+	TableName string
+
+	// Optional: whether to attempt to create the DB
 	CreateDB bool
 
 	// optional params
@@ -86,6 +91,10 @@ func (m *MySQLBackendConfig) setDefaults() {
 
 	if m.DBName == "" {
 		m.DBName = DefaultDBName
+	}
+
+	if m.TableName == "" {
+		m.TableName = DefaultTableName
 	}
 
 	if m.HeartBeatFreq == 0 {
@@ -191,7 +200,7 @@ func (m *MySQLBackend) createTable() error {
 		`version VARCHAR(255),`+
 		`started_at TIMESTAMP,`+
 		`last_heartbeat TIMESTAMP`+
-		`);`, LockTableName)
+		`);`, m.TableName)
 
 	m.log.Debug("Attempting to create lock table")
 
