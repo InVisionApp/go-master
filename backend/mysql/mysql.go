@@ -16,6 +16,7 @@ const (
 	DefaultDBName             = "gomaster"
 	DefaultHeartbeatFrequency = time.Second * 5
 	DefaultTableName          = "masterlock"
+	DefaultMaxOpenConnections = 4
 )
 
 type MySQLBackend struct {
@@ -55,6 +56,7 @@ type MySQLBackendConfig struct {
 	// optional params
 	MaxWait    time.Duration
 	MaxRetries int
+	MaxOpenConnections int
 
 	// Optional: Frequency of master heartbeat write
 	HeartBeatFreq time.Duration
@@ -103,6 +105,10 @@ func (m *MySQLBackendConfig) setDefaults() {
 
 	if m.Logger == nil {
 		m.Logger = logrus.New(nil)
+	}
+
+	if m.MaxOpenConnections <= 0 {
+		m.MaxOpenConnections = DefaultMaxOpenConnections
 	}
 
 	m.driver = "mysql"
@@ -160,6 +166,8 @@ func (m *MySQLBackend) retryConnect() error {
 			time.Sleep(m.MaxWait)
 			continue
 		}
+
+		db.SetMaxOpenConns(m.MaxOpenConnections)
 
 		m.db = db
 

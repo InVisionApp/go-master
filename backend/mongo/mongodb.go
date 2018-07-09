@@ -21,6 +21,7 @@ const (
 	DefaultHeartbeatFrequency = time.Second * 5
 
 	MgoSessionRefreshFreq = time.Minute * 5
+	DefaultPoolLimit = 4
 )
 
 type MongoBackend struct {
@@ -57,6 +58,7 @@ type MongoConnectConfig struct {
 	Password   string
 	Timeout    time.Duration
 	UseSSL     bool
+	PoolLimit  int
 }
 
 func New(cfg *MongoBackendConfig) *MongoBackend {
@@ -88,10 +90,14 @@ func setDefaults(cfg *MongoBackendConfig) {
 	if len(cfg.CollectionName) < 1 {
 		cfg.CollectionName = DefaultCollectionName
 	}
+
+	if cfg.ConnectConfig.PoolLimit <= 0 {
+		cfg.ConnectConfig.PoolLimit = DefaultPoolLimit
+	}
 }
 
 func (m *MongoBackend) Connect() error {
-	m.log.Infof("Connecting to DB: %q hosts: %v with timeout %d sec", m.cfg.Name, m.cfg.Hosts, m.cfg.Timeout)
+	m.log.Infof("Connecting to DB: %q hosts: %v with timeout %d sec and pool size %v", m.cfg.Name, m.cfg.Hosts, m.cfg.Timeout, m.cfg.PoolLimit)
 	m.log.Debugf("DB name: '%s'; replica set: '%s'; auth source: '%s'; user: '%s'; pass len: %d; use SSL: %v",
 		m.cfg.Name, m.cfg.ReplicaSet, m.cfg.Source, m.cfg.User, len(m.cfg.Password), m.cfg.UseSSL)
 
@@ -103,6 +109,7 @@ func (m *MongoBackend) Connect() error {
 		Username:       m.cfg.User,
 		Password:       m.cfg.Password,
 		Timeout:        m.cfg.Timeout,
+		PoolLimit: 		m.cfg.PoolLimit,
 	}
 
 	if m.cfg.UseSSL {

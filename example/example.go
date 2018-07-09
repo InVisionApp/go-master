@@ -56,6 +56,7 @@ func MongDBBackend() backend.MasterLock {
 			Name:    "gomastertest",
 			Timeout: time.Duration(1 * time.Second),
 			UseSSL:  false,
+			PoolLimit: 4,
 		},
 		Logger: logger,
 	})
@@ -77,6 +78,7 @@ func MySQLBackend() backend.MasterLock {
 		DBName:   "gomastertest",
 		CreateDB: true,
 		Logger:   logger,
+		MaxOpenConnections: 5,
 	})
 
 	if err := mysqlBackend.Connect(); err != nil {
