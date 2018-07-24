@@ -6,7 +6,7 @@ import (
 
 	"github.com/InVisionApp/go-logger"
 	"github.com/relistan/go-director"
-	"github.com/satori/go.uuid"
+	"github.com/gofrs/uuid"
 
 	"github.com/InVisionApp/go-logger/shims/logrus"
 	"github.com/InVisionApp/go-master/backend"
