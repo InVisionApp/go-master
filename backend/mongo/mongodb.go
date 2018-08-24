@@ -12,8 +12,8 @@ import (
 
 	"github.com/InVisionApp/go-logger"
 	"github.com/InVisionApp/go-logger/shims/logrus"
+	"github.com/globalsign/mgo"
 	"github.com/newrelic/go-agent"
-	"gopkg.in/mgo.v2"
 )
 
 const (
@@ -21,7 +21,7 @@ const (
 	DefaultHeartbeatFrequency = time.Second * 5
 
 	MgoSessionRefreshFreq = time.Minute * 5
-	DefaultPoolLimit = 4
+	DefaultPoolLimit      = 4
 )
 
 type MongoBackend struct {
@@ -50,15 +50,16 @@ type MongoBackendConfig struct {
 }
 
 type MongoConnectConfig struct {
-	Hosts      []string
-	Name       string
-	ReplicaSet string
-	Source     string
-	User       string
-	Password   string
-	Timeout    time.Duration
-	UseSSL     bool
-	PoolLimit  int
+	Hosts         []string
+	Name          string
+	ReplicaSet    string
+	Source        string
+	User          string
+	Password      string
+	Timeout       time.Duration
+	UseSSL        bool
+	PoolLimit     int
+	MaxIdleTimeMS int
 }
 
 func New(cfg *MongoBackendConfig) *MongoBackend {
@@ -109,7 +110,8 @@ func (m *MongoBackend) Connect() error {
 		Username:       m.cfg.User,
 		Password:       m.cfg.Password,
 		Timeout:        m.cfg.Timeout,
-		PoolLimit: 		m.cfg.PoolLimit,
+		PoolLimit:      m.cfg.PoolLimit,
+		MaxIdleTimeMS:  m.cfg.MaxIdleTimeMS,
 	}
 
 	if m.cfg.UseSSL {
