@@ -111,6 +111,18 @@ var _ = Describe("master", func() {
 	})
 
 	Describe("start", func() {
+		BeforeEach(func() {
+			m.lock = fakeMasterLock
+		})
+
+		It("errors if validation fails", func() {
+			m.lock = nil
+
+			err := m.Start()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("MasterLock backend must be defined"))
+		})
+
 		It("kicks off the heartbeat", func() {
 			err := m.Start()
 			Expect(err).ToNot(HaveOccurred())
@@ -337,6 +349,27 @@ var _ = Describe("master", func() {
 			m.isMaster.SetFalse()
 
 			Expect(m.IsMaster()).To(BeFalse())
+		})
+	})
+
+	Describe("setDefaults", func() {
+		It("defaults are set if unspecified in config", func() {
+			cfg := &MasterConfig{}
+
+			setDefaults(cfg)
+
+			Expect(cfg.Version).To(Equal(DefaultVersion))
+			Expect(cfg.HeartBeatFrequency).To(Equal(DefaultHeartbeatFrequency))
+			Expect(cfg.Logger).ToNot(BeNil())
+		})
+	})
+
+	Describe("uuid", func() {
+		It("uuid is set after master instantiation", func() {
+			cfg := &MasterConfig{}
+			m := New(cfg)
+			Expect(m.ID()).ToNot(BeEmpty())
+
 		})
 	})
 

@@ -1,0 +1,10 @@
+visibility: public
+
+owner:
+  active:
+    team: edge
+    since: 2018-03-31
+
+description: "Library for leader election using traditional backends"
+
+type: library
