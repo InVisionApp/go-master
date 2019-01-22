@@ -17,6 +17,7 @@ const (
 	DefaultHeartbeatFrequency = time.Second * 5
 	DefaultTableName          = "masterlock"
 	DefaultMaxOpenConnections = 4
+	DefaultMaxWait            = time.Second * 5
 )
 
 type MySQLBackend struct {
@@ -54,8 +55,8 @@ type MySQLBackendConfig struct {
 	CreateDB bool
 
 	// optional params
-	MaxWait    time.Duration
-	MaxRetries int
+	MaxWait            time.Duration
+	MaxRetries         int
 	MaxOpenConnections int
 
 	// Optional: Frequency of master heartbeat write
@@ -88,7 +89,7 @@ func (m *MySQLBackendConfig) setDefaults() {
 	}
 
 	if m.MaxWait == 0 {
-		m.MaxWait = time.Second * 5
+		m.MaxWait = DefaultMaxWait
 	}
 
 	if m.DBName == "" {
@@ -134,7 +135,7 @@ func (m *MySQLBackend) Connect() error {
 	}
 
 	if err := m.createTable(); err != nil {
-		return fmt.Errorf("Unable to complete one or more migrations: %v", err.Error())
+		return fmt.Errorf("unable to complete one or more migrations: %v", err.Error())
 	}
 
 	return nil
@@ -183,7 +184,7 @@ func (m *MySQLBackend) createDB() error {
 
 	_, err := m.db.Exec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%v`", m.DBName))
 	if err != nil {
-		return fmt.Errorf("Unable to create initial lock DB: %v", err)
+		return fmt.Errorf("unable to create initial lock DB: %v", err)
 	}
 
 	m.log.Debugf("Created new lock DB '%v' (or already existed)", m.DBName)
@@ -192,8 +193,9 @@ func (m *MySQLBackend) createDB() error {
 }
 
 func (m *MySQLBackend) useDB() error {
+
 	if _, err := m.db.Exec(fmt.Sprintf("use `%v`", m.DBName)); err != nil {
-		return fmt.Errorf("Unable to open db connection: %v", err)
+		return fmt.Errorf("unable to use db: %v", err)
 	}
 
 	m.log.Debugf("Using DB %s", m.DBName)
@@ -214,7 +216,7 @@ func (m *MySQLBackend) createTable() error {
 
 	_, err := m.db.DB.Exec(query)
 	if err != nil {
-		return fmt.Errorf("Unable to create lock table: %v", err)
+		return fmt.Errorf("unable to create lock table: %v", err)
 	}
 
 	m.log.Debugf("Created new lock table '%v' (or already existed)", m.TableName)
