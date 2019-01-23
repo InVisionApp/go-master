@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/InVisionApp/go-master"
+	"github.com/InVisionApp/go-master/backend"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 	. "github.com/onsi/ginkgo"
@@ -49,11 +50,92 @@ var _ = Describe("masterlock-integration", func() {
 	})
 
 	Describe("Lock", func() {
+		It("happy path - no existing master", func() {
+			masterInfo := &backend.MasterInfo{
+				MasterID:      "testMasterID",
+				Version:       "testVersion",
+				StartedAt:     time.Now().Add(100 * time.Second),
+				LastHeartbeat: time.Now(),
+			}
+
+			err := be.Lock(masterInfo)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Verify that masterInfo in DB server is the same as ours
+			dbMasterInfo, hasMaster, err := be.getMasterInfo()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(hasMaster).To(BeTrue())
+			Expect(dbMasterInfo.MasterID).To(Equal(masterInfo.MasterID))
+		})
+
+		It("happy path - take over existing, expired master", func() {
+			// Difficult to test
+		})
+
+		Context("when active master exists", func() {
+			It("should return active master error", func() {
+				// Start up go-master
+				gom := master.New(&master.MasterConfig{
+					MasterLock:         be,
+					HeartBeatFrequency: 50 * time.Millisecond,
+				})
+
+				err := gom.Start()
+				Expect(err).ToNot(HaveOccurred())
+
+				// Give some time for master to start
+				time.Sleep(100 * time.Millisecond)
+
+				// should have a masterInfo
+				masterInfo, hasMaster, err := be.getMasterInfo()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(hasMaster).To(BeTrue())
+				Expect(masterInfo).ToNot(BeNil())
+
+				// Performing another lock should cause us to get a lock error
+				err = be.Lock(masterInfo.toMasterInfo())
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("found active master"))
+			})
+		})
 
 	})
 
 	Describe("UnLock", func() {
+		It("happy path", func() {
+			// Start up go-master
+			gom := master.New(&master.MasterConfig{
+				MasterLock:         be,
+				HeartBeatFrequency: 50 * time.Millisecond,
+			})
 
+			err := gom.Start()
+			Expect(err).ToNot(HaveOccurred())
+
+			// Give some time for master to start
+			time.Sleep(100 * time.Millisecond)
+
+			// should have a masterInfo
+			masterInfo, hasMaster, err := be.getMasterInfo()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(hasMaster).To(BeTrue())
+			Expect(masterInfo).ToNot(BeNil())
+
+			err = be.UnLock(masterInfo.MasterID)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		Context("when exec fails", func() {
+			It("should return error", func() {
+				// Closing the DB connection will cause the unlock to error
+				err := be.db.Close()
+				Expect(err).ToNot(HaveOccurred(), "closing db connection should not error")
+
+				err = be.UnLock("foo")
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("failed to release master lock"))
+			})
+		})
 	})
 
 	Describe("WriteHeartbeat", func() {
