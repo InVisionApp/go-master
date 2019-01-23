@@ -164,9 +164,6 @@ func (m *MySQLBackend) WriteHeartbeat(info *backend.MasterInfo) error {
 		LastHeartbeat: time.Now(),
 	}
 
-	//s, a, _ := m.db.BindNamed(query, mi)
-	//fmt.Println(s, a)
-
 	res, err := m.db.NamedExec(query, mi)
 	if err != nil {
 		return err
