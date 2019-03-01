@@ -1,6 +1,4 @@
-version: 2.1
-orbs:
-  codecov: codecov/codecov@1.0.2
+version: 2.0
 jobs:
   build:
     docker:
@@ -20,5 +18,4 @@ jobs:
           command: dockerize -wait tcp://127.0.0.1:3306 -timeout 120s
       - run: go get -t -v ./...
       - run: MYSQL_ALLOW_EMPTY_PASSWORD=true MYSQL_DATABASE=circle_test MYSQL_HOST=127.0.0.1 make test
-      - codecov/upload:
-          file: /go/src/github.com/InVIsionApp/go-master/coverage.txt
+      - run: bash <(curl -s https://codecov.io/bash)
