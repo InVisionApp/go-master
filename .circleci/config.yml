@@ -14,7 +14,7 @@ jobs:
           MYSQL_HOST: 127.0.0.1
           MYSQL_ROOT_HOST: "%"
           MYSQL_USER: root
-    working_directory: /go/src/github.com/{{ORG_NAME}}/{{REPO_NAME}}
+    working_directory: /go/src/github.com/InVisionApp/go-master
     steps:
       - checkout
       - run:
