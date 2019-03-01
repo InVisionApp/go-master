@@ -19,3 +19,4 @@ jobs:
       - run: go get -t -v ./...
       - run: MYSQL_ALLOW_EMPTY_PASSWORD=true MYSQL_DATABASE=circle_test MYSQL_HOST=127.0.0.1 make test
       - run: bash <(curl -s https://codecov.io/bash)
+      - run: ls; pwd
