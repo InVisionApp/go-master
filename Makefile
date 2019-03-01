@@ -38,10 +38,10 @@ test/cover: ## Run all tests + open coverage report for all packages
 	go tool cover -html=.coverage
 	$(RM) .coverage .coverage.tmp
 
-test/codecov: ## Run all tests + open coverage report for all packages
+test/codecov: ## Run all tests + create coverage report (used by codecov)
 	ECODE=0; \
 	for PKG in $(TEST_PACKAGES); do \
-		go test -covermode=$(COVERMODE) -coverprofile=profile.out $$PKG; \
+		go test -tags integration -covermode=$(COVERMODE) -coverprofile=profile.out $$PKG; \
 		ECODE=$$((ECODE+$$?));\
 		if [ -f profile.out ]; then\
 			cat profile.out >> coverage.txt;\

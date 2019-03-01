@@ -1,4 +1,5 @@
 [![CircleCI](https://circleci.com/gh/InVisionApp/go-master.svg?style=svg)](https://circleci.com/gh/InVisionApp/go-master)
+[![codecov](https://codecov.io/gh/InVisionApp/go-master/branch/master/graph/badge.svg?token=eWHfq11AM9)](https://codecov.io/gh/InVisionApp/go-master)
 
 <img align="right" src="images/go-master.svg" width="200">
 
