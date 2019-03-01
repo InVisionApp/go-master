@@ -142,21 +142,28 @@ func generateConfig() (*MySQLBackendConfig, error) {
 		User:     os.Getenv("MYSQL_USER"),
 		Password: os.Getenv("MYSQL_PASSWORD"),
 		Host:     os.Getenv("MYSQL_HOST"),
-		DBName:   TestDBName,
+		DBName:   os.Getenv("MYSQL_DATABASE"),
 		CreateDB: true,
 		MaxWait:  time.Second * 1,
 	}
+
+	allowEmptyPassword := os.Getenv("MYSQL_ALLOW_EMPTY_PASSWORD")
 
 	if cfg.User == "" {
 		cfg.User = TestDBUser
 	}
 
-	if cfg.Password == "" {
+	// If password is empty and empty passwords are NOT allowed, use a default
+	if cfg.Password == "" && allowEmptyPassword == "" {
 		cfg.Password = TestDBPass
 	}
 
 	if cfg.Host == "" {
 		cfg.Host = TestDBHost
+	}
+
+	if cfg.DBName == "" {
+		cfg.DBName = TestDBName
 	}
 
 	cfg.Port, _ = strconv.Atoi(os.Getenv("MYSQL_PORT"))
