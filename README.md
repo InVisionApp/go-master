@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.com/InVisionApp/go-background.svg?token=KosA43m1X3ikri8JEukQ&branch=master)](https://travis-ci.com/InVisionApp/go-background)
+[![CircleCI](https://circleci.com/gh/InVisionApp/go-master.svg?style=svg)](https://circleci.com/gh/InVisionApp/go-master)
 
 <img align="right" src="images/go-master.svg" width="200">
 
