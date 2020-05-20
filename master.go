@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/InVisionApp/go-logger"
+	log "github.com/InVisionApp/go-logger"
 	"github.com/gofrs/uuid"
 	"github.com/relistan/go-director"
 
@@ -162,8 +162,6 @@ func (m *master) runHeartBeat() {
 
 		// run the heartbeat
 		if err := m.lock.WriteHeartbeat(m.info); err != nil {
-			m.log.Debugf("failed to write heartbeat: %v", err)
-
 			m.sendError(fmt.Errorf("failed to write heartbeat: %v", err))
 			// if heartbeat fails or master lock lost, stop the tasks
 			m.cleanupMaster()
@@ -186,7 +184,7 @@ func (m *master) becomeMaster() bool {
 	}
 
 	if err := m.lock.Lock(mi); err != nil {
-		m.log.Debugf("failed to lock: %v", err)
+		m.sendError(fmt.Errorf("failed to acquire lock while becoming master: %v", err))
 		return false
 	}
 
@@ -226,7 +224,7 @@ func (m *master) Stop() error {
 	// this is a best effort. The heartbeat loop has been stopped,
 	// so the lock will be lost eventually either way
 	if err := m.lock.UnLock(m.uuid); err != nil {
-		m.log.Errorf("failed to release lock on master backend: %v", err)
+		m.sendError(fmt.Errorf("failed to release lock on master backend: %v", err))
 	}
 
 	// at this point, as far as this node is concerned, it is

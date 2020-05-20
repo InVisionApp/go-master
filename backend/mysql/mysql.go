@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/InVisionApp/go-logger"
+	log "github.com/InVisionApp/go-logger"
 	"github.com/InVisionApp/go-logger/shims/logrus"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
@@ -180,14 +180,14 @@ func (m *MySQLBackend) retryConnect() error {
 }
 
 func (m *MySQLBackend) createDB() error {
-	m.log.Debug("Creating new lock DB if it does not exist")
+	m.log.Info("Creating new lock DB if it does not exist")
 
 	_, err := m.db.Exec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%v`", m.DBName))
 	if err != nil {
 		return fmt.Errorf("unable to create initial lock DB: %v", err)
 	}
 
-	m.log.Debugf("Created new lock DB '%v' (or already existed)", m.DBName)
+	m.log.Infof("Created new lock DB '%v' (or already existed)", m.DBName)
 
 	return nil
 }
@@ -212,14 +212,14 @@ func (m *MySQLBackend) createTable() error {
 		`last_heartbeat TIMESTAMP`+
 		`);`, m.TableName)
 
-	m.log.Debug("Attempting to create lock table")
+	m.log.Info("Attempting to create lock table")
 
 	_, err := m.db.DB.Exec(query)
 	if err != nil {
 		return fmt.Errorf("unable to create lock table: %v", err)
 	}
 
-	m.log.Debugf("Created new lock table '%v' (or already existed)", m.TableName)
+	m.log.Infof("Created new lock table '%v' (or already existed)", m.TableName)
 
 	return nil
 }

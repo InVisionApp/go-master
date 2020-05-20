@@ -10,10 +10,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/InVisionApp/go-logger"
+	log "github.com/InVisionApp/go-logger"
 	"github.com/InVisionApp/go-logger/shims/logrus"
 	"github.com/globalsign/mgo"
-	"github.com/newrelic/go-agent"
+	newrelic "github.com/newrelic/go-agent"
 )
 
 const (
@@ -118,7 +118,7 @@ func (m *MongoBackend) Connect() error {
 		dialInfo.DialServer = func(addr *mgo.ServerAddr) (net.Conn, error) {
 			conn, err := tls.Dial("tcp", addr.String(), &tls.Config{})
 			if conn != nil {
-				m.log.Debugf("Connection local address: %s, remote address: %s", conn.LocalAddr(), conn.RemoteAddr())
+				m.log.Infof("Connection local address: %s, remote address: %s", conn.LocalAddr(), conn.RemoteAddr())
 			}
 			return conn, err
 		}
@@ -181,7 +181,7 @@ func (s *SmartCollection) Collection() *mgo.Collection {
 
 func (s *SmartCollection) EnsureIndexes(idxs []*mgo.Index) error {
 	for _, idx := range idxs {
-		s.log.Debugf("Ensuring index: %s", idx.Name)
+		s.log.Infof("Ensuring index: %s", idx.Name)
 		if err := s.UpsertIndex(idx); err != nil {
 			return fmt.Errorf("could not ensure indexes on DB: %v", err)
 		}

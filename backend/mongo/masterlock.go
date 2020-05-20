@@ -54,21 +54,18 @@ func (m *MongoBackend) Lock(info *backend.MasterInfo) error {
 		if err == mgo.ErrNotFound {
 			// perform an insert
 			if err := m.lock.Collection().Insert(mmi); err != nil {
-				m.log.Errorf("unable to insert initial lock: %v", err)
-				return err
+				return fmt.Errorf("unable to insert initial lock: %v", err)
 			}
 
-			m.log.Info("successfully inserted initial lock")
 			return nil
 		}
 
-		e := fmt.Errorf("failed to fetch current master info: %v", err)
-		m.log.Error(e)
+		err = fmt.Errorf("failed to fetch current master info: %v", err)
 
 		m.log.Debug("attempting to refresh sessions in case of db issues")
 		m.refresh()
 
-		return e
+		return err
 	}
 
 	// has not been long enough since the last valid heart beat
@@ -84,9 +81,8 @@ func (m *MongoBackend) Lock(info *backend.MasterInfo) error {
 	}
 
 	if _, err := m.lock.Collection().Find(query).Apply(change, mmi); err != nil {
-		lErr := fmt.Errorf("unable to complete findModify: %v", err)
-		m.log.Error(lErr)
-		return lErr
+		err = fmt.Errorf("unable to complete findModify: %v", err)
+		return err
 	}
 
 	return nil
