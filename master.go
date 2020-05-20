@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/InVisionApp/go-logger"
-	"github.com/relistan/go-director"
 	"github.com/gofrs/uuid"
+	"github.com/relistan/go-director"
 
 	"github.com/InVisionApp/go-logger/shims/logrus"
 	"github.com/InVisionApp/go-master/backend"
