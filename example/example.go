@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/InVisionApp/go-logger"
+	log "github.com/InVisionApp/go-logger"
 	logshim "github.com/InVisionApp/go-logger/shims/logrus"
 	"github.com/InVisionApp/go-master"
 	"github.com/InVisionApp/go-master/backend"
@@ -20,7 +20,7 @@ var (
 
 func init() {
 	l := logrus.New()
-	l.SetLevel(logrus.DebugLevel)
+	l.SetLevel(logrus.InfoLevel)
 	logger = logshim.New(l)
 }
 

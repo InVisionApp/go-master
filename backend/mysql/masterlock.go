@@ -97,8 +97,7 @@ func (m *MySQLBackend) Lock(info *backend.MasterInfo) error {
 
 	res, err := m.db.NamedExec(query, fields)
 	if err != nil {
-		m.log.Errorf("failed to update lock: %v", err)
-		return err
+		return fmt.Errorf("failed to update lock: %v", err)
 	}
 
 	// if no rows were modified, then probably another master got the lock
