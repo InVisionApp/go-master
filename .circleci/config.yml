@@ -2,7 +2,7 @@ version: 2.0
 jobs:
   build:
     docker:
-      - image: circleci/golang:1.9
+      - image: circleci/golang:1.14
       - image: circleci/mysql:5.6
         environment:
           MYSQL_ALLOW_EMPTY_PASSWORD: true
@@ -10,12 +10,11 @@ jobs:
           MYSQL_HOST: 127.0.0.1
           MYSQL_ROOT_HOST: "%"
           MYSQL_USER: root
-    working_directory: /go/src/github.com/InVisionApp/go-master
     steps:
       - checkout
       - run:
           name: Wait for DB
           command: dockerize -wait tcp://127.0.0.1:3306 -timeout 120s
-      - run: go get -t -v ./...
+      - run: go mod tidy
       - run: MYSQL_ALLOW_EMPTY_PASSWORD=true MYSQL_DATABASE=circle_test MYSQL_HOST=127.0.0.1 make test/codecov
       - run: bash <(curl -s https://codecov.io/bash)

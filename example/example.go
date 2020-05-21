@@ -52,10 +52,10 @@ func MongDBBackend() backend.MasterLock {
 	mongoBackend := mongo.New(&mongo.MongoBackendConfig{
 		CollectionName: "gomaster",
 		ConnectConfig: &mongo.MongoConnectConfig{
-			Hosts:   []string{"localhost"},
-			Name:    "gomastertest",
-			Timeout: time.Duration(1 * time.Second),
-			UseSSL:  false,
+			Hosts:     []string{"localhost"},
+			Name:      "gomastertest",
+			Timeout:   time.Duration(1 * time.Second),
+			UseSSL:    false,
 			PoolLimit: 4,
 		},
 		Logger: logger,
@@ -71,13 +71,13 @@ func MongDBBackend() backend.MasterLock {
 
 func MySQLBackend() backend.MasterLock {
 	mysqlBackend := mysql.NewMySQLBackend(&mysql.MySQLBackendConfig{
-		User:     "foo",
-		Password: "bar",
-		Host:     "localhost",
-		Port:     3306,
-		DBName:   "gomastertest",
-		CreateDB: true,
-		Logger:   logger,
+		User:               "foo",
+		Password:           "bar",
+		Host:               "localhost",
+		Port:               3306,
+		DBName:             "gomastertest",
+		CreateDB:           true,
+		Logger:             logger,
 		MaxOpenConnections: 5,
 	})
 

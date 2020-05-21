@@ -1,10 +1,14 @@
+specVersion: v1
 visibility: public
-
+description: "Library for leader election using traditional backends"
+type: library
+code-coverage:
+  goal-percent: 70
 owner:
   active:
-    team: edge
-    since: 2018-03-31
+    team: platform-shared-services-eng
+    since: 2020-03-20
+  history:
+    - team: edge
+      since: 2019-03-31
 
-description: "Library for leader election using traditional backends"
-
-type: library
