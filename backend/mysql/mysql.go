@@ -208,8 +208,8 @@ func (m *MySQLBackend) createTable() error {
 		`id INT NOT NULL PRIMARY KEY,`+
 		`master_id CHAR(36) UNIQUE,`+
 		`version VARCHAR(255),`+
-		`started_at TIMESTAMP,`+
-		`last_heartbeat TIMESTAMP`+
+		`started_at TIMESTAMP NULL,`+
+		`last_heartbeat TIMESTAMP NULL`+
 		`);`, m.TableName)
 
 	m.log.Info("Attempting to create lock table")
