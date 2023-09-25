@@ -184,7 +184,9 @@ func (m *master) becomeMaster() bool {
 	}
 
 	if err := m.lock.Lock(mi); err != nil {
-		m.sendError(fmt.Errorf("failed to acquire lock while becoming master: %v", err))
+		// The heartbeat tries to become master every second. Logging an error here
+		// (at error level) is a constant stream.
+		m.log.Debugf("failed to acquire lock while becoming master: %v", err)
 		return false
 	}
 
