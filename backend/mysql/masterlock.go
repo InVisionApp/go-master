@@ -1,6 +1,7 @@
 package mysql
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -35,7 +36,7 @@ func (m *MySQLMasterInfo) toMasterInfo() *backend.MasterInfo {
 	}
 }
 
-func (m *MySQLBackend) Lock(info *backend.MasterInfo) error {
+func (m *MySQLBackend) Lock(ctx context.Context, info *backend.MasterInfo) error {
 	curInfo, ok, err := m.getMasterInfo()
 	if err != nil {
 		return err
@@ -127,7 +128,7 @@ func (m *MySQLBackend) getMasterInfo() (*MySQLMasterInfo, bool, error) {
 
 func (m *MySQLBackend) insertMasterInfo(info *MySQLMasterInfo) error {
 	query := fmt.Sprintf(`
-		INSERT INTO %s (id, master_id, version, started_at, last_heartbeat) 
+		INSERT INTO %s (id, master_id, version, started_at, last_heartbeat)
 		VALUES (:id, :master_id, :version, :started_at, :last_heartbeat)`,
 		m.TableName)
 
@@ -138,7 +139,7 @@ func (m *MySQLBackend) insertMasterInfo(info *MySQLMasterInfo) error {
 	return nil
 }
 
-func (m *MySQLBackend) UnLock(masterID string) error {
+func (m *MySQLBackend) UnLock(ctx context.Context, masterID string) error {
 	query := fmt.Sprintf(`DELETE FROM %s WHERE id = ? AND master_id = ?`, m.TableName)
 
 	if _, err := m.db.Exec(query, MasterLockID, masterID); err != nil {
@@ -150,11 +151,11 @@ func (m *MySQLBackend) UnLock(masterID string) error {
 	return nil
 }
 
-func (m *MySQLBackend) WriteHeartbeat(info *backend.MasterInfo) error {
+func (m *MySQLBackend) WriteHeartbeat(ctx context.Context, info *backend.MasterInfo) error {
 	query := fmt.Sprintf(`
-		UPDATE %s SET 
+		UPDATE %s SET
 			last_heartbeat = :last_heartbeat
-		WHERE 
+		WHERE
 			master_id = :master_id`,
 		m.TableName)
 
@@ -177,7 +178,7 @@ func (m *MySQLBackend) WriteHeartbeat(info *backend.MasterInfo) error {
 	return nil
 }
 
-func (m *MySQLBackend) Status() (*backend.MasterInfo, error) {
+func (m *MySQLBackend) Status(ctx context.Context) (*backend.MasterInfo, error) {
 	info, ok, err := m.getMasterInfo()
 	if err != nil {
 		return nil, err

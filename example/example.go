@@ -1,17 +1,19 @@
 package main
 
 import (
+	"context"
 	"os"
 	"sync"
 	"time"
 
 	log "github.com/InVisionApp/go-logger"
 	logshim "github.com/InVisionApp/go-logger/shims/logrus"
+	"github.com/sirupsen/logrus"
+
 	"github.com/InVisionApp/go-master"
 	"github.com/InVisionApp/go-master/backend"
 	"github.com/InVisionApp/go-master/backend/mongo"
 	"github.com/InVisionApp/go-master/backend/mysql"
-	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -61,7 +63,9 @@ func MongDBBackend() backend.MasterLock {
 		Logger: logger,
 	})
 
-	if err := mongoBackend.Connect(); err != nil {
+	ctx := context.TODO()
+
+	if err := mongoBackend.Connect(ctx); err != nil {
 		logger.Errorf("Unable to connect to mongo: %v", err)
 		os.Exit(1)
 	}

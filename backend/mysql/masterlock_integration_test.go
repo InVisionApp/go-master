@@ -1,17 +1,20 @@
+//go:build integration
 // +build integration
 
 package mysql
 
 import (
+	"context"
 	"fmt"
 	"time"
 
-	"github.com/InVisionApp/go-master"
-	"github.com/InVisionApp/go-master/backend"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	"github.com/InVisionApp/go-master"
+	"github.com/InVisionApp/go-master/backend"
 )
 
 var _ = Describe("masterlock-integration", func() {
@@ -58,7 +61,7 @@ var _ = Describe("masterlock-integration", func() {
 				LastHeartbeat: time.Now(),
 			}
 
-			err := be.Lock(masterInfo)
+			err := be.Lock(context.TODO(), masterInfo)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Verify that masterInfo in DB server is the same as ours
@@ -93,7 +96,7 @@ var _ = Describe("masterlock-integration", func() {
 				Expect(masterInfo).ToNot(BeNil())
 
 				// Performing another lock should cause us to get a lock error
-				err = be.Lock(masterInfo.toMasterInfo())
+				err = be.Lock(context.TODO(), masterInfo.toMasterInfo())
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("found active master"))
 			})
@@ -121,7 +124,7 @@ var _ = Describe("masterlock-integration", func() {
 			Expect(hasMaster).To(BeTrue())
 			Expect(masterInfo).ToNot(BeNil())
 
-			err = be.UnLock(masterInfo.MasterID)
+			err = be.UnLock(context.TODO(), masterInfo.MasterID)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -131,7 +134,7 @@ var _ = Describe("masterlock-integration", func() {
 				err := be.db.Close()
 				Expect(err).ToNot(HaveOccurred(), "closing db connection should not error")
 
-				err = be.UnLock("foo")
+				err = be.UnLock(context.TODO(), "foo")
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("failed to release master lock"))
 			})
@@ -157,7 +160,7 @@ var _ = Describe("masterlock-integration", func() {
 				// Give some time for master to start
 				time.Sleep(100 * time.Millisecond)
 
-				masterInfo, err := be.Status()
+				masterInfo, err := be.Status(context.TODO())
 				Expect(err).ToNot(HaveOccurred())
 				Expect(masterInfo).ToNot(BeNil())
 				Expect(masterInfo.MasterID).ToNot(BeEmpty())
@@ -166,7 +169,7 @@ var _ = Describe("masterlock-integration", func() {
 
 		Context("when there is no master", func() {
 			It("return error", func() {
-				masterInfo, err := be.Status()
+				masterInfo, err := be.Status(context.TODO())
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("no master currently"))
 				Expect(masterInfo).To(BeNil())

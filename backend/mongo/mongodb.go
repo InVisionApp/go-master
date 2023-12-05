@@ -1,33 +1,35 @@
 package mongo
 
 import (
-	"time"
-
+	"context"
 	"crypto/tls"
 	"fmt"
-	"net"
-
 	"strings"
 	"sync"
+	"time"
 
 	log "github.com/InVisionApp/go-logger"
 	"github.com/InVisionApp/go-logger/shims/logrus"
-	"github.com/globalsign/mgo"
 	newrelic "github.com/newrelic/go-agent"
+	mgo "github.com/qiniu/qmgo"
+	mgooptions "github.com/qiniu/qmgo/options"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readconcern"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
+	"go.mongodb.org/mongo-driver/mongo/writeconcern"
 )
 
 const (
 	DefaultCollectionName     = "masterlock"
 	DefaultHeartbeatFrequency = time.Second * 5
 
-	MgoSessionRefreshFreq = time.Minute * 5
-	DefaultPoolLimit      = 4
+	DefaultPoolLimit = 4
 )
 
 type MongoBackend struct {
 	collName string
 	lock     *SmartCollection
-	indices  []*mgo.Index
+	indices  []mgooptions.IndexModel
 
 	heartBeatFreq time.Duration
 
@@ -50,6 +52,7 @@ type MongoBackendConfig struct {
 }
 
 type MongoConnectConfig struct {
+	URL           string
 	Hosts         []string
 	Name          string
 	ReplicaSet    string
@@ -70,10 +73,10 @@ func New(cfg *MongoBackendConfig) *MongoBackend {
 		heartBeatFreq: cfg.HeartBeatFreq,
 		log:           cfg.Logger,
 		cfg:           cfg.ConnectConfig,
-		indices: []*mgo.Index{
+		indices: []mgooptions.IndexModel{
 			{
-				Name: "heartbeat_ttl",
-				Key:  []string{"last_heartbeat"},
+				Key:          []string{"last_heartbeat"},
+				IndexOptions: options.Index().SetName("heartbeat_ttl"),
 			},
 		},
 	}
@@ -97,47 +100,72 @@ func setDefaults(cfg *MongoBackendConfig) {
 	}
 }
 
-func (m *MongoBackend) Connect() error {
+func (m *MongoBackend) Connect(ctx context.Context) error {
 	m.log.Infof("Connecting to DB: %q hosts: %v with timeout %d sec and pool size %v", m.cfg.Name, m.cfg.Hosts, m.cfg.Timeout, m.cfg.PoolLimit)
 	m.log.Debugf("DB name: '%s'; replica set: '%s'; auth source: '%s'; user: '%s'; pass len: %d; use SSL: %v",
 		m.cfg.Name, m.cfg.ReplicaSet, m.cfg.Source, m.cfg.User, len(m.cfg.Password), m.cfg.UseSSL)
 
-	dialInfo := &mgo.DialInfo{
-		Addrs:          m.cfg.Hosts,
-		Database:       m.cfg.Name,
-		ReplicaSetName: m.cfg.ReplicaSet,
-		Source:         m.cfg.Source,
-		Username:       m.cfg.User,
-		Password:       m.cfg.Password,
-		Timeout:        m.cfg.Timeout,
-		PoolLimit:      m.cfg.PoolLimit,
-		MaxIdleTimeMS:  m.cfg.MaxIdleTimeMS,
-	}
-
-	if m.cfg.UseSSL {
-		dialInfo.DialServer = func(addr *mgo.ServerAddr) (net.Conn, error) {
-			conn, err := tls.Dial("tcp", addr.String(), &tls.Config{})
-			if conn != nil {
-				m.log.Infof("Connection local address: %s, remote address: %s", conn.LocalAddr(), conn.RemoteAddr())
-			}
-			return conn, err
-		}
-	}
-
-	session, err := mgo.DialWithInfo(dialInfo)
+	mongoClient, err := m.connectMongoClient(ctx)
 	if err != nil {
-		return fmt.Errorf("could not connect to MongoDB: %v", err)
+		return err
 	}
 
-	// the lock db is special because data accuracy is more important here
-	// strong mode will cause all reads and writes to go to the primary mongo node
-	lc := session.Copy().DB(m.cfg.Name).C(m.collName)
-	lc.Database.Session.SetMode(mgo.Strong, false)
-	lc.Database.Session.SetSafe(&mgo.Safe{})
-	m.lock = newSmartCollection(lc, MgoSessionRefreshFreq, m.log)
-	m.lock.EnsureIndexes(m.indices)
+	db := mongoClient.Database(m.cfg.Name)
+	lc := db.Collection(m.collName)
+
+	m.lock = newSmartCollection(mongoClient, db, lc, m.log)
+	m.lock.coll.CreateIndexes(ctx, m.indices)
 
 	return nil
+}
+
+func (m *MongoBackend) Disconnect(ctx context.Context) error {
+	return m.lock.client.Close(ctx)
+}
+
+func (m *MongoBackend) connectMongoClient(ctx context.Context) (*mgo.Client, error) {
+	clientConfig := &mgo.Config{
+		Uri: m.cfg.URL,
+	}
+
+	if clientConfig.Uri == "" {
+		// NOTE: A base URI is required by qmgo, and the rest of the options
+		// will be applied by it later into this URI (but won't override any param
+		// that might already exist in the URI).
+		clientConfig.Uri = "mongodb://" + strings.Join(m.cfg.Hosts, ",")
+	}
+
+	client, err := mgo.NewClient(ctx, clientConfig, m.getMongoClientOptions())
+	if err != nil {
+		return nil, fmt.Errorf("Could not connect to MongoDB: %v", err)
+	}
+
+	return client, nil
+}
+
+func (m *MongoBackend) getMongoClientOptions() mgooptions.ClientOptions {
+	clientOptions := options.Client()
+	clientOptions.SetHosts(m.cfg.Hosts)
+	clientOptions.SetReplicaSet(m.cfg.ReplicaSet)
+	clientOptions.SetReadPreference(readpref.Primary())
+	clientOptions.SetReadConcern(readconcern.Majority())
+	clientOptions.SetWriteConcern(writeconcern.New(writeconcern.WMajority()))
+	clientOptions.SetConnectTimeout(m.cfg.Timeout)
+	clientOptions.SetMaxPoolSize(uint64(m.cfg.PoolLimit))
+	clientOptions.SetMaxConnIdleTime(time.Duration(m.cfg.MaxIdleTimeMS) * time.Millisecond)
+	clientOptions.SetAuth(options.Credential{
+		Username:   m.cfg.User,
+		Password:   m.cfg.Password,
+		AuthSource: m.cfg.Source,
+	})
+
+	if m.cfg.UseSSL {
+		clientOptions.SetTLSConfig(&tls.Config{MinVersion: tls.VersionTLS12})
+	}
+
+	return mgooptions.ClientOptions{
+		ClientOptions: clientOptions,
+	}
 }
 
 /*****************
@@ -145,44 +173,53 @@ func (m *MongoBackend) Connect() error {
 *****************/
 
 type SmartCollection struct {
-	coll *mgo.Collection
-	mu   RWLocker
-	last time.Time
-	freq time.Duration
-	log  log.Logger
+	client *mgo.Client
+	db     *mgo.Database
+	coll   *mgo.Collection
+	mu     RWLocker
+	last   time.Time
+	freq   time.Duration
+	log    log.Logger
 }
 
-func newSmartCollection(c *mgo.Collection, freq time.Duration, log log.Logger) *SmartCollection {
+func newSmartCollection(client *mgo.Client, db *mgo.Database, c *mgo.Collection, log log.Logger) *SmartCollection {
 	return &SmartCollection{
-		coll: c,
-		mu:   &sync.RWMutex{},
-		last: time.Now(),
-		freq: freq,
-		log:  log,
+		client: client,
+		db:     db,
+		coll:   c,
+		mu:     &sync.RWMutex{},
+		last:   time.Now(),
+		log:    log,
 	}
 }
 
 func (s *SmartCollection) Collection() *mgo.Collection {
-	s.mu.RLock()
-	elapsed := time.Since(s.last)
-	s.mu.RUnlock()
+	// NOTE: The way connections are managed have changed completely
+	// and there is no more session neither the need to refresh the session,
+	// therefore we shouldn't need this session refreshing anymore here.
+	// Keeping this around anyway as commented code just for future reference in case we
+	// notice something wrong with this change.
 
-	if elapsed > s.freq {
-		s.mu.Lock()
-		s.last = time.Now()
-		s.mu.Unlock()
-
-		// this is safe to do without a lock because it implements its own lock
-		s.coll.Database.Session.Refresh()
-	}
+	// s.mu.RLock()
+	// elapsed := time.Since(s.last)
+	// s.mu.RUnlock()
+	//
+	// if elapsed > s.freq {
+	// 	s.mu.Lock()
+	// 	s.last = time.Now()
+	// 	s.mu.Unlock()
+	//
+	// 	// this is safe to do without a lock because it implements its own lock
+	// 	s.coll.Database.Session.Refresh()
+	// }
 
 	return s.coll
 }
 
-func (s *SmartCollection) EnsureIndexes(idxs []*mgo.Index) error {
+func (s *SmartCollection) EnsureIndexes(ctx context.Context, idxs []*mgooptions.IndexModel) error {
 	for _, idx := range idxs {
 		s.log.Infof("Ensuring index: %s", idx.Name)
-		if err := s.UpsertIndex(idx); err != nil {
+		if err := s.UpsertIndex(ctx, idx); err != nil {
 			return fmt.Errorf("could not ensure indexes on DB: %v", err)
 		}
 	}
@@ -191,18 +228,23 @@ func (s *SmartCollection) EnsureIndexes(idxs []*mgo.Index) error {
 }
 
 // Ensure new index. If index already exists with same options, remove it and add new one.
-func (s *SmartCollection) UpsertIndex(idx *mgo.Index) error {
-	if err := s.coll.EnsureIndex(*idx); err != nil {
+func (s *SmartCollection) UpsertIndex(ctx context.Context, idx *mgooptions.IndexModel) error {
+	if idx.Name == nil {
+		return fmt.Errorf("index is missing a name: %+v", idx)
+
+	}
+
+	if err := s.coll.CreateOneIndex(ctx, *idx); err != nil {
 		if strings.Contains(err.Error(), "already exists with different options") ||
 			strings.Contains(err.Error(), "Trying to create an index with same name") {
 			s.log.Warnf("index already exists with name '%s'. replacing...", idx.Name)
 
 			//drop that one
-			if err := s.coll.DropIndexName(idx.Name); err != nil {
+			if err := s.coll.DropIndex(ctx, []string{*idx.Name}); err != nil {
 				return fmt.Errorf("failed to remove old index: %v", err)
 			}
 
-			if err := s.coll.EnsureIndex(*idx); err != nil {
+			if err := s.coll.CreateOneIndex(ctx, *idx); err != nil {
 				return fmt.Errorf("failed to add new index: %v", err)
 			}
 
@@ -219,8 +261,8 @@ func (s *SmartCollection) StartMongoDatastoreSegment(txn newrelic.Transaction, o
 	return &newrelic.DatastoreSegment{
 		StartTime:       newrelic.StartSegmentNow(txn),
 		Product:         newrelic.DatastoreMongoDB,
-		DatabaseName:    s.coll.Database.Name,
-		Collection:      s.coll.Name,
+		DatabaseName:    s.db.GetDatabaseName(),
+		Collection:      s.coll.GetCollectionName(),
 		Operation:       op,
 		QueryParameters: query,
 	}

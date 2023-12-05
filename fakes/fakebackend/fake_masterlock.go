@@ -2,15 +2,17 @@
 package fakebackend
 
 import (
+	"context"
 	"sync"
 
 	"github.com/InVisionApp/go-master/backend"
 )
 
 type FakeMasterLock struct {
-	LockStub        func(info *backend.MasterInfo) error
+	LockStub        func(ctx context.Context, info *backend.MasterInfo) error
 	lockMutex       sync.RWMutex
 	lockArgsForCall []struct {
+		ctx  context.Context
 		info *backend.MasterInfo
 	}
 	lockReturns struct {
@@ -19,9 +21,10 @@ type FakeMasterLock struct {
 	lockReturnsOnCall map[int]struct {
 		result1 error
 	}
-	UnLockStub        func(masterID string) error
+	UnLockStub        func(ctx context.Context, masterID string) error
 	unLockMutex       sync.RWMutex
 	unLockArgsForCall []struct {
+		ctx      context.Context
 		masterID string
 	}
 	unLockReturns struct {
@@ -30,9 +33,10 @@ type FakeMasterLock struct {
 	unLockReturnsOnCall map[int]struct {
 		result1 error
 	}
-	WriteHeartbeatStub        func(info *backend.MasterInfo) error
+	WriteHeartbeatStub        func(ctx context.Context, info *backend.MasterInfo) error
 	writeHeartbeatMutex       sync.RWMutex
 	writeHeartbeatArgsForCall []struct {
+		ctx  context.Context
 		info *backend.MasterInfo
 	}
 	writeHeartbeatReturns struct {
@@ -41,10 +45,12 @@ type FakeMasterLock struct {
 	writeHeartbeatReturnsOnCall map[int]struct {
 		result1 error
 	}
-	StatusStub        func() (*backend.MasterInfo, error)
+	StatusStub        func(ctx context.Context) (*backend.MasterInfo, error)
 	statusMutex       sync.RWMutex
-	statusArgsForCall []struct{}
-	statusReturns     struct {
+	statusArgsForCall []struct {
+		ctx context.Context
+	}
+	statusReturns struct {
 		result1 *backend.MasterInfo
 		result2 error
 	}
@@ -56,16 +62,17 @@ type FakeMasterLock struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeMasterLock) Lock(info *backend.MasterInfo) error {
+func (fake *FakeMasterLock) Lock(ctx context.Context, info *backend.MasterInfo) error {
 	fake.lockMutex.Lock()
 	ret, specificReturn := fake.lockReturnsOnCall[len(fake.lockArgsForCall)]
 	fake.lockArgsForCall = append(fake.lockArgsForCall, struct {
+		ctx  context.Context
 		info *backend.MasterInfo
-	}{info})
-	fake.recordInvocation("Lock", []interface{}{info})
+	}{ctx, info})
+	fake.recordInvocation("Lock", []interface{}{ctx, info})
 	fake.lockMutex.Unlock()
 	if fake.LockStub != nil {
-		return fake.LockStub(info)
+		return fake.LockStub(ctx, info)
 	}
 	if specificReturn {
 		return ret.result1
@@ -79,10 +86,10 @@ func (fake *FakeMasterLock) LockCallCount() int {
 	return len(fake.lockArgsForCall)
 }
 
-func (fake *FakeMasterLock) LockArgsForCall(i int) *backend.MasterInfo {
+func (fake *FakeMasterLock) LockArgsForCall(i int) (context.Context, *backend.MasterInfo) {
 	fake.lockMutex.RLock()
 	defer fake.lockMutex.RUnlock()
-	return fake.lockArgsForCall[i].info
+	return fake.lockArgsForCall[i].ctx, fake.lockArgsForCall[i].info
 }
 
 func (fake *FakeMasterLock) LockReturns(result1 error) {
@@ -104,16 +111,17 @@ func (fake *FakeMasterLock) LockReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeMasterLock) UnLock(masterID string) error {
+func (fake *FakeMasterLock) UnLock(ctx context.Context, masterID string) error {
 	fake.unLockMutex.Lock()
 	ret, specificReturn := fake.unLockReturnsOnCall[len(fake.unLockArgsForCall)]
 	fake.unLockArgsForCall = append(fake.unLockArgsForCall, struct {
+		ctx      context.Context
 		masterID string
-	}{masterID})
-	fake.recordInvocation("UnLock", []interface{}{masterID})
+	}{ctx, masterID})
+	fake.recordInvocation("UnLock", []interface{}{ctx, masterID})
 	fake.unLockMutex.Unlock()
 	if fake.UnLockStub != nil {
-		return fake.UnLockStub(masterID)
+		return fake.UnLockStub(ctx, masterID)
 	}
 	if specificReturn {
 		return ret.result1
@@ -127,10 +135,10 @@ func (fake *FakeMasterLock) UnLockCallCount() int {
 	return len(fake.unLockArgsForCall)
 }
 
-func (fake *FakeMasterLock) UnLockArgsForCall(i int) string {
+func (fake *FakeMasterLock) UnLockArgsForCall(i int) (context.Context, string) {
 	fake.unLockMutex.RLock()
 	defer fake.unLockMutex.RUnlock()
-	return fake.unLockArgsForCall[i].masterID
+	return fake.unLockArgsForCall[i].ctx, fake.unLockArgsForCall[i].masterID
 }
 
 func (fake *FakeMasterLock) UnLockReturns(result1 error) {
@@ -152,16 +160,17 @@ func (fake *FakeMasterLock) UnLockReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeMasterLock) WriteHeartbeat(info *backend.MasterInfo) error {
+func (fake *FakeMasterLock) WriteHeartbeat(ctx context.Context, info *backend.MasterInfo) error {
 	fake.writeHeartbeatMutex.Lock()
 	ret, specificReturn := fake.writeHeartbeatReturnsOnCall[len(fake.writeHeartbeatArgsForCall)]
 	fake.writeHeartbeatArgsForCall = append(fake.writeHeartbeatArgsForCall, struct {
+		ctx  context.Context
 		info *backend.MasterInfo
-	}{info})
-	fake.recordInvocation("WriteHeartbeat", []interface{}{info})
+	}{ctx, info})
+	fake.recordInvocation("WriteHeartbeat", []interface{}{ctx, info})
 	fake.writeHeartbeatMutex.Unlock()
 	if fake.WriteHeartbeatStub != nil {
-		return fake.WriteHeartbeatStub(info)
+		return fake.WriteHeartbeatStub(ctx, info)
 	}
 	if specificReturn {
 		return ret.result1
@@ -175,10 +184,10 @@ func (fake *FakeMasterLock) WriteHeartbeatCallCount() int {
 	return len(fake.writeHeartbeatArgsForCall)
 }
 
-func (fake *FakeMasterLock) WriteHeartbeatArgsForCall(i int) *backend.MasterInfo {
+func (fake *FakeMasterLock) WriteHeartbeatArgsForCall(i int) (context.Context, *backend.MasterInfo) {
 	fake.writeHeartbeatMutex.RLock()
 	defer fake.writeHeartbeatMutex.RUnlock()
-	return fake.writeHeartbeatArgsForCall[i].info
+	return fake.writeHeartbeatArgsForCall[i].ctx, fake.writeHeartbeatArgsForCall[i].info
 }
 
 func (fake *FakeMasterLock) WriteHeartbeatReturns(result1 error) {
@@ -200,14 +209,16 @@ func (fake *FakeMasterLock) WriteHeartbeatReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeMasterLock) Status() (*backend.MasterInfo, error) {
+func (fake *FakeMasterLock) Status(ctx context.Context) (*backend.MasterInfo, error) {
 	fake.statusMutex.Lock()
 	ret, specificReturn := fake.statusReturnsOnCall[len(fake.statusArgsForCall)]
-	fake.statusArgsForCall = append(fake.statusArgsForCall, struct{}{})
-	fake.recordInvocation("Status", []interface{}{})
+	fake.statusArgsForCall = append(fake.statusArgsForCall, struct {
+		ctx context.Context
+	}{ctx})
+	fake.recordInvocation("Status", []interface{}{ctx})
 	fake.statusMutex.Unlock()
 	if fake.StatusStub != nil {
-		return fake.StatusStub()
+		return fake.StatusStub(ctx)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -219,6 +230,12 @@ func (fake *FakeMasterLock) StatusCallCount() int {
 	fake.statusMutex.RLock()
 	defer fake.statusMutex.RUnlock()
 	return len(fake.statusArgsForCall)
+}
+
+func (fake *FakeMasterLock) StatusArgsForCall(i int) context.Context {
+	fake.statusMutex.RLock()
+	defer fake.statusMutex.RUnlock()
+	return fake.statusArgsForCall[i].ctx
 }
 
 func (fake *FakeMasterLock) StatusReturns(result1 *backend.MasterInfo, result2 error) {
