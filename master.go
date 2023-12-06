@@ -40,8 +40,8 @@ type master struct {
 
 	heartBeatFreq time.Duration
 
-	startHook func()
-	stopHook  func()
+	startHook func(context.Context)
+	stopHook  func(context.Context)
 
 	heartBeat director.Looper
 
@@ -61,12 +61,12 @@ type MasterConfig struct {
 
 	// Optional: StartHook func is called as soon as a master lock is achieved.
 	// It is the callback to signal becoming a master
-	StartHook func()
+	StartHook func(context.Context)
 
 	// Optional: StopHook func is called when the master lock is lost
 	// It is the callback to signal that it is no longer the master.
 	// It is not called when the master is stopped manually
-	StopHook func()
+	StopHook func(context.Context)
 
 	// Optional: Error channel to receive go-master related error messages
 	Err chan error
@@ -153,7 +153,7 @@ func (m *master) runHeartBeat() {
 				// became the master
 				if m.startHook != nil {
 					// run the start hook in a routine so it doesn't block
-					go m.startHook()
+					go m.startHook(ctx)
 				}
 			}
 
@@ -207,8 +207,9 @@ func (m *master) cleanupMaster() {
 	m.info = &backend.MasterInfo{}
 
 	if m.stopHook != nil {
+		ctx := context.TODO() // TODO: identify the proper context.
 		// run hook in routine to avoid blocking
-		go m.stopHook()
+		go m.stopHook(ctx)
 	}
 }
 

@@ -93,10 +93,10 @@ func MySQLBackend() backend.MasterLock {
 	return mysqlBackend
 }
 
-func startHook() {
+func startHook(ctx context.Context) {
 	logger.Info("Became master")
 }
 
-func stopHook() {
+func stopHook(ctx context.Context) {
 	logger.Info("Lost master status")
 }
