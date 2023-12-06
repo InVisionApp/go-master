@@ -18,6 +18,10 @@ const (
 	DefaultTableName          = "masterlock"
 	DefaultMaxOpenConnections = 4
 	DefaultMaxWait            = time.Second * 5
+
+	DefaultConnectionTimeout = 10
+	DefaultReadTimeout       = 30
+	DefaultWriteTimeout      = 30
 )
 
 type MySQLBackend struct {
@@ -37,6 +41,11 @@ type MySQLBackendConfig struct {
 	Password string
 	Host     string
 	Port     int //optional
+
+	// optional timeout
+	ConnectionTimeout int
+	ReadTimeout       int
+	WriteTimeout      int
 
 	// Name of the DB to connect to.
 	// If a name is supplied, a table will be created within that DB.
@@ -84,8 +93,20 @@ func (m *MySQLBackendConfig) setDefaults() {
 		m.Port = 3306
 	}
 
+	if m.ConnectionTimeout == 0 {
+		m.ConnectionTimeout = DefaultConnectionTimeout
+	}
+
+	if m.ReadTimeout == 0 {
+		m.ReadTimeout = DefaultReadTimeout
+	}
+
+	if m.WriteTimeout == 0 {
+		m.WriteTimeout = DefaultWriteTimeout
+	}
+
 	if m.BaseDSN == "" {
-		m.BaseDSN = fmt.Sprintf("%s:%s@tcp(%s:%d)/?parseTime=true", m.User, m.Password, m.Host, m.Port)
+		m.BaseDSN = m.getBaseDsnWithDBName(true)
 	}
 
 	if m.MaxWait == 0 {
@@ -115,18 +136,28 @@ func (m *MySQLBackendConfig) setDefaults() {
 	m.driver = "mysql"
 }
 
-func (m *MySQLBackend) Connect() error {
-	// attempt to connect to db server
-	err := m.retryConnect()
-	if err != nil {
-		return err
+func (m *MySQLBackendConfig) getBaseDsnWithDBName(withDbName bool) string {
+	if withDbName {
+		return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&timeout=%ds&readTimeout=%ds&writeTimeout=%ds",
+			m.User, m.Password, m.Host, m.Port, m.DBName, m.ConnectionTimeout, m.ReadTimeout, m.WriteTimeout)
 	}
 
+	return fmt.Sprintf("%s:%s@tcp(%s:%d)/?parseTime=true&timeout=%ds&readTimeout=%ds&writeTimeout=%ds",
+		m.User, m.Password, m.Host, m.Port, m.ConnectionTimeout, m.ReadTimeout, m.WriteTimeout)
+}
+
+func (m *MySQLBackend) Connect() error {
 	// attempt to create DB enabled
 	if m.CreateDB {
 		if err := m.createDB(); err != nil {
 			return err
 		}
+	}
+
+	// attempt to connect to db server
+	err := m.retryConnect(m.BaseDSN)
+	if err != nil {
+		return err
 	}
 
 	// use the appropriate DB
@@ -142,7 +173,7 @@ func (m *MySQLBackend) Connect() error {
 }
 
 // Try to connect to a DB server
-func (m *MySQLBackend) retryConnect() error {
+func (m *MySQLBackend) retryConnect(dsn string) error {
 	m.log.Debug("Attempting to connect to DB")
 
 	var (
@@ -153,7 +184,7 @@ func (m *MySQLBackend) retryConnect() error {
 	for i := 0; i <= m.MaxRetries; i++ {
 		tries++
 
-		db, err := sqlx.Connect(m.driver, m.BaseDSN)
+		db, err := sqlx.Connect(m.driver, dsn)
 		if err != nil {
 			//close the bad connection to prevent routine leak
 			if db != nil {
@@ -180,9 +211,14 @@ func (m *MySQLBackend) retryConnect() error {
 }
 
 func (m *MySQLBackend) createDB() error {
+	err := m.retryConnect(m.getBaseDsnWithDBName(false))
+	if err != nil {
+		return err
+	}
+
 	m.log.Info("Creating new lock DB if it does not exist")
 
-	_, err := m.db.Exec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%v`", m.DBName))
+	_, err = m.db.Exec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%v`", m.DBName))
 	if err != nil {
 		return fmt.Errorf("unable to create initial lock DB: %v", err)
 	}
