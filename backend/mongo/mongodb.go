@@ -101,7 +101,13 @@ func setDefaults(cfg *MongoBackendConfig) {
 }
 
 func (m *MongoBackend) Connect(ctx context.Context) error {
-	m.log.Infof("Connecting to DB: %q hosts: %v with timeout %d sec and pool size %v", m.cfg.Name, m.cfg.Hosts, m.cfg.Timeout, m.cfg.PoolLimit)
+	m.log.Infof(
+		"Connecting to DB: %q hosts: %v with timeout %d sec and pool size %v",
+		m.cfg.Name,
+		m.cfg.Hosts,
+		m.cfg.Timeout,
+		m.cfg.PoolLimit,
+	)
 	m.log.Debugf("DB name: '%s'; replica set: '%s'; auth source: '%s'; user: '%s'; pass len: %d; use SSL: %v",
 		m.cfg.Name, m.cfg.ReplicaSet, m.cfg.Source, m.cfg.User, len(m.cfg.Password), m.cfg.UseSSL)
 
@@ -153,11 +159,14 @@ func (m *MongoBackend) getMongoClientOptions() mgooptions.ClientOptions {
 	clientOptions.SetConnectTimeout(m.cfg.Timeout)
 	clientOptions.SetMaxPoolSize(uint64(m.cfg.PoolLimit))
 	clientOptions.SetMaxConnIdleTime(time.Duration(m.cfg.MaxIdleTimeMS) * time.Millisecond)
-	clientOptions.SetAuth(options.Credential{
-		Username:   m.cfg.User,
-		Password:   m.cfg.Password,
-		AuthSource: m.cfg.Source,
-	})
+
+	if m.cfg.User != "" || m.cfg.Password != "" || m.cfg.Source != "" {
+		clientOptions.SetAuth(options.Credential{
+			Username:   m.cfg.User,
+			Password:   m.cfg.Password,
+			AuthSource: m.cfg.Source,
+		})
+	}
 
 	if m.cfg.UseSSL {
 		clientOptions.SetTLSConfig(&tls.Config{MinVersion: tls.VersionTLS12})
@@ -231,7 +240,6 @@ func (s *SmartCollection) EnsureIndexes(ctx context.Context, idxs []*mgooptions.
 func (s *SmartCollection) UpsertIndex(ctx context.Context, idx *mgooptions.IndexModel) error {
 	if idx.Name == nil {
 		return fmt.Errorf("index is missing a name: %+v", idx)
-
 	}
 
 	if err := s.coll.CreateOneIndex(ctx, *idx); err != nil {
@@ -239,7 +247,7 @@ func (s *SmartCollection) UpsertIndex(ctx context.Context, idx *mgooptions.Index
 			strings.Contains(err.Error(), "Trying to create an index with same name") {
 			s.log.Warnf("index already exists with name '%s'. replacing...", idx.Name)
 
-			//drop that one
+			// drop that one
 			if err := s.coll.DropIndex(ctx, []string{*idx.Name}); err != nil {
 				return fmt.Errorf("failed to remove old index: %v", err)
 			}
@@ -257,7 +265,11 @@ func (s *SmartCollection) UpsertIndex(ctx context.Context, idx *mgooptions.Index
 	return nil
 }
 
-func (s *SmartCollection) StartMongoDatastoreSegment(txn newrelic.Transaction, op string, query map[string]interface{}) *newrelic.DatastoreSegment {
+func (s *SmartCollection) StartMongoDatastoreSegment(
+	txn newrelic.Transaction,
+	op string,
+	query map[string]interface{},
+) *newrelic.DatastoreSegment {
 	return &newrelic.DatastoreSegment{
 		StartTime:       newrelic.StartSegmentNow(txn),
 		Product:         newrelic.DatastoreMongoDB,
