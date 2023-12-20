@@ -160,7 +160,7 @@ func (m *MongoBackend) getMongoClientOptions() mgooptions.ClientOptions {
 	clientOptions.SetMaxPoolSize(uint64(m.cfg.PoolLimit))
 	clientOptions.SetMaxConnIdleTime(time.Duration(m.cfg.MaxIdleTimeMS) * time.Millisecond)
 
-	if m.cfg.User != "" || m.cfg.Password != "" || m.cfg.Source != "" {
+	if m.cfg.User != "" || m.cfg.Password != "" {
 		clientOptions.SetAuth(options.Credential{
 			Username:   m.cfg.User,
 			Password:   m.cfg.Password,
