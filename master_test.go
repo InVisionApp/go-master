@@ -1,17 +1,19 @@
 package master
 
 import (
+	"context"
 	"errors"
 	"time"
 
-	"github.com/InVisionApp/go-logger"
+	log "github.com/InVisionApp/go-logger"
 	"github.com/InVisionApp/go-logger/shims/testlog"
-	"github.com/InVisionApp/go-master/backend"
-	"github.com/InVisionApp/go-master/fakes/fakebackend"
-	"github.com/InVisionApp/go-master/safe"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/relistan/go-director"
+
+	"github.com/InVisionApp/go-master/backend"
+	"github.com/InVisionApp/go-master/fakes/fakebackend"
+	"github.com/InVisionApp/go-master/safe"
 )
 
 var _ = Describe("New", func() {
@@ -64,12 +66,12 @@ var _ = Describe("New", func() {
 	})
 
 	Context("hooks provided", func() {
-		var startfunc func()
-		var stopfunc func()
+		var startfunc func(ctx context.Context)
+		var stopfunc func(ctx context.Context)
 
 		BeforeEach(func() {
-			startfunc = func() {}
-			stopfunc = func() {}
+			startfunc = func(ctx context.Context) {}
+			stopfunc = func(ctx context.Context) {}
 			mCfg.StartHook = startfunc
 			mCfg.StopHook = stopfunc
 		})
@@ -403,10 +405,10 @@ type testHooks struct {
 	stopCalls  int
 }
 
-func (t *testHooks) startHook() {
+func (t *testHooks) startHook(ctx context.Context) {
 	t.startCalls++
 }
 
-func (t *testHooks) stopHook() {
+func (t *testHooks) stopHook(ctx context.Context) {
 	t.stopCalls++
 }

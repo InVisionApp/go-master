@@ -1,6 +1,7 @@
 package master
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/relistan/go-director"
 
 	"github.com/InVisionApp/go-logger/shims/logrus"
+
 	"github.com/InVisionApp/go-master/backend"
 	"github.com/InVisionApp/go-master/safe"
 )
@@ -38,8 +40,8 @@ type master struct {
 
 	heartBeatFreq time.Duration
 
-	startHook func()
-	stopHook  func()
+	startHook func(context.Context)
+	stopHook  func(context.Context)
 
 	heartBeat director.Looper
 
@@ -59,12 +61,12 @@ type MasterConfig struct {
 
 	// Optional: StartHook func is called as soon as a master lock is achieved.
 	// It is the callback to signal becoming a master
-	StartHook func()
+	StartHook func(context.Context)
 
 	// Optional: StopHook func is called when the master lock is lost
 	// It is the callback to signal that it is no longer the master.
 	// It is not called when the master is stopped manually
-	StopHook func()
+	StopHook func(context.Context)
 
 	// Optional: Error channel to receive go-master related error messages
 	Err chan error
@@ -145,12 +147,13 @@ func (m *master) Start() error {
 func (m *master) runHeartBeat() {
 	m.heartBeat.Loop(func() error {
 		if !m.isMaster.Val() {
+			ctx := context.TODO() // TODO: identify the proper context.
 			// attempt to become the master
-			if m.becomeMaster() {
+			if m.becomeMaster(ctx) {
 				// became the master
 				if m.startHook != nil {
 					// run the start hook in a routine so it doesn't block
-					go m.startHook()
+					go m.startHook(ctx)
 				}
 			}
 
@@ -159,9 +162,9 @@ func (m *master) runHeartBeat() {
 		}
 
 		// I am the master!
-
 		// run the heartbeat
-		if err := m.lock.WriteHeartbeat(m.info); err != nil {
+		ctx := context.TODO() // TODO: identify the proper context.
+		if err := m.lock.WriteHeartbeat(ctx, m.info); err != nil {
 			m.sendError(fmt.Errorf("failed to write heartbeat: %v", err))
 			// if heartbeat fails or master lock lost, stop the tasks
 			m.cleanupMaster()
@@ -177,13 +180,13 @@ func (m *master) runHeartBeat() {
 	})
 }
 
-func (m *master) becomeMaster() bool {
+func (m *master) becomeMaster(ctx context.Context) bool {
 	mi := &backend.MasterInfo{
 		MasterID: m.uuid,
 		Version:  m.version,
 	}
 
-	if err := m.lock.Lock(mi); err != nil {
+	if err := m.lock.Lock(ctx, mi); err != nil {
 		// The heartbeat tries to become master every second. Logging an error here
 		// (at error level) is a constant stream.
 		m.log.Debugf("failed to acquire lock while becoming master: %v", err)
@@ -204,8 +207,9 @@ func (m *master) cleanupMaster() {
 	m.info = &backend.MasterInfo{}
 
 	if m.stopHook != nil {
+		ctx := context.TODO() // TODO: identify the proper context.
 		// run hook in routine to avoid blocking
-		go m.stopHook()
+		go m.stopHook(ctx)
 	}
 }
 
@@ -225,7 +229,8 @@ func (m *master) Stop() error {
 	// attempt a release on the backend
 	// this is a best effort. The heartbeat loop has been stopped,
 	// so the lock will be lost eventually either way
-	if err := m.lock.UnLock(m.uuid); err != nil {
+	ctx := context.TODO() // TODO: identify the proper context.
+	if err := m.lock.UnLock(ctx, m.uuid); err != nil {
 		m.sendError(fmt.Errorf("failed to release lock on master backend: %v", err))
 	}
 

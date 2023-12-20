@@ -1,17 +1,19 @@
 package master
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
 
-	"github.com/InVisionApp/go-logger"
-	"github.com/InVisionApp/go-master/backend"
-	"github.com/InVisionApp/go-master/fakes/fakebackend"
-	"github.com/InVisionApp/go-master/safe"
+	log "github.com/InVisionApp/go-logger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/relistan/go-director"
+
+	"github.com/InVisionApp/go-master/backend"
+	"github.com/InVisionApp/go-master/fakes/fakebackend"
+	"github.com/InVisionApp/go-master/safe"
 )
 
 var _ = Describe("scenarios", func() {
@@ -66,7 +68,7 @@ var _ = Describe("scenarios", func() {
 
 		Context("start together", func() {
 			It("first becomes master", func() {
-				fakeLock.LockStub = func(info *backend.MasterInfo) error {
+				fakeLock.LockStub = func(ctx context.Context, info *backend.MasterInfo) error {
 					if info.MasterID == testID1 {
 						return nil
 					}
@@ -88,7 +90,7 @@ var _ = Describe("scenarios", func() {
 			})
 
 			It("first fails second becomes master", func() {
-				fakeLock.LockStub = func(info *backend.MasterInfo) error {
+				fakeLock.LockStub = func(ctx context.Context, info *backend.MasterInfo) error {
 					if info.MasterID == testID2 {
 						return nil
 					}
@@ -152,7 +154,7 @@ type testlock struct {
 	secondMaster string
 }
 
-func (t *testlock) Lock(info *backend.MasterInfo) error {
+func (t *testlock) Lock(ctx context.Context, info *backend.MasterInfo) error {
 	switch info.MasterID {
 	case t.firstMaster:
 		// if there is no master, first becomes master
@@ -182,15 +184,15 @@ func (t *testlock) Lock(info *backend.MasterInfo) error {
 	return errors.New("failed to become master")
 }
 
-func (t *testlock) Status() (*backend.MasterInfo, error) {
+func (t *testlock) Status(ctx context.Context) (*backend.MasterInfo, error) {
 	return &backend.MasterInfo{MasterID: t.isMaster}, nil
 }
 
-func (t *testlock) UnLock(masterID string) error {
+func (t *testlock) UnLock(ctx context.Context, masterID string) error {
 	return nil
 }
 
-func (t *testlock) WriteHeartbeat(info *backend.MasterInfo) error {
+func (t *testlock) WriteHeartbeat(ctx context.Context, info *backend.MasterInfo) error {
 	if info.MasterID != t.isMaster {
 		return errors.New("wrong node")
 	}
