@@ -74,7 +74,7 @@ func (m *MongoBackend) Lock(ctx context.Context, info *backend.MasterInfo) error
 	query := bson.M{"master_id": oldMMI.MasterID, "last_heartbeat": oldMMI.LastHeartbeat}
 
 	change := mgo.Change{
-		Update:    mmi,
+		Update:    bson.M{"$set": mmi},
 		ReturnNew: true,
 	}
 
