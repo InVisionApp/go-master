@@ -1,3 +1,6 @@
+| :warning: This project is no longer actively supported.
+| ---
+
 [![CircleCI](https://circleci.com/gh/InVisionApp/go-master.svg?style=svg)](https://circleci.com/gh/InVisionApp/go-master)
 [![codecov](https://codecov.io/gh/InVisionApp/go-master/branch/master/graph/badge.svg?token=eWHfq11AM9)](https://codecov.io/gh/InVisionApp/go-master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/InVisionApp/go-master)](https://goreportcard.com/report/github.com/InVisionApp/go-master)
